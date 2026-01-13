@@ -51,7 +51,7 @@ export default function ZubalePortal() {
             </div>
             <div>
               <span className="text-xl font-black text-slate-900 block leading-tight tracking-tighter">
-                ZUBALE <span className="text-blue-600">OPS</span>
+                ZUBALE <span className="text-blue-600">BRASIL</span>
               </span>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Portal de Contestações</span>
             </div>
