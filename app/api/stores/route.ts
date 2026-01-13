@@ -1,6 +1,8 @@
 // app/api/stores/route.ts
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic'; // <--- ADICIONE ESTA LINHA
+
 export async function GET() {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   const sheetName = process.env.GOOGLE_SHEET_NAME;
