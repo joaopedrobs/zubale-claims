@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useActionState, useMemo, useEffect } from "react";
-import { submitContestation, FormState } from "./actions";
+import { useState, useActionState, useMemo, useEffect, useRef } from "react";
+import { submitContestation, type FormState } from "./actions";
 import { 
   CheckCircle2, Loader2, Search, Building2, 
-  Calendar, Phone, Mail, Hash, User, FileText, AlertCircle, Info
+  Calendar, Phone, Mail, Hash, User, FileText, AlertCircle, Info, Paperclip, X, Plus
 } from "lucide-react";
 
-// Lista de bônus com caracteres corrigidos
 const BONUS_TYPES = [
   "Indicação de Novo Zubalero", "Meta de Produtividade", "Bônus de Domingo",
   "Bônus de Fim de Ano", "Bônus Adicional 2 Turnos", "Conectividade",
@@ -20,7 +19,10 @@ export default function ZubalePortal() {
   const [storeSearch, setStoreSearch] = useState("");
   const [phone, setPhone] = useState("+55");
   
-  // Estados para integração com o Google Sheets
+  // Estado para gerenciar múltiplos arquivos
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(true);
 
@@ -29,7 +31,6 @@ export default function ZubalePortal() {
     null
   );
 
-  // Busca as lojas da API Route que criamos
   useEffect(() => {
     async function loadStores() {
       try {
@@ -46,19 +47,43 @@ export default function ZubalePortal() {
   }, []);
 
   const filteredStores = useMemo(() => {
-  if (!storeSearch) return storesDatabase.slice(0, 0);
-
-  const searchLower = storeSearch.toLowerCase();
-  
-  return storesDatabase
-    .filter(s => s.toLowerCase().includes(searchLower))
-    .slice(0, 50);
-}, [storeSearch, storesDatabase]);
+    if (!storeSearch) return [];
+    const searchLower = storeSearch.toLowerCase();
+    return storesDatabase
+      .filter(s => s.toLowerCase().includes(searchLower))
+      .slice(0, 50);
+  }, [storeSearch, storesDatabase]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
     if (!val.startsWith("55")) val = "55" + val;
     setPhone("+" + val.substring(0, 13)); 
+  };
+
+  // Lógica para adicionar arquivos respeitando o limite de 5
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles(prev => {
+        const totalFiles = [...prev, ...newFiles];
+        return totalFiles.slice(0, 5); // Garante o limite de 5
+      });
+    }
+    // Reseta o input para permitir selecionar o mesmo arquivo novamente se for removido
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Wrapper para garantir que todos os arquivos do estado sejam enviados no FormData
+  const handleSubmit = (formData: FormData) => {
+    formData.delete("evidencias_files"); // Limpa o input nativo
+    selectedFiles.forEach(file => {
+      formData.append("evidencias_files", file);
+    });
+    formAction(formData);
   };
 
   return (
@@ -95,11 +120,10 @@ export default function ZubalePortal() {
         {state?.success ? (
           <SuccessView />
         ) : (
-          <form action={formAction} className="space-y-6">
+          <form action={handleSubmit} className="space-y-6">
             <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
               <div className="p-8 md:p-12 space-y-10">
                 
-                {/* GRUPO 1: IDENTIFICAÇÃO */}
                 <section className="space-y-6">
                   <SectionTitle number="01" title="Sua Identificação" />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -110,7 +134,6 @@ export default function ZubalePortal() {
                   </div>
                 </section>
 
-                {/* GRUPO 2: DETALHES DA OCORRÊNCIA */}
                 <section className="space-y-6">
                   <SectionTitle number="02" title="Dados da Atuação" />
                   <div className="space-y-6">
@@ -163,7 +186,6 @@ export default function ZubalePortal() {
                   </div>
                 </section>
 
-                {/* GRUPO 3: CAMPOS DINÂMICOS */}
                 {bonusSelected && (
                   <section className="space-y-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500">
                     <SectionTitle number="03" title="Detalhes Financeiros" />
@@ -186,8 +208,48 @@ export default function ZubalePortal() {
                       <textarea name="detalhamento" required rows={4} className="custom-input resize-none" placeholder="Conte-nos o que aconteceu em detalhes..."></textarea>
                     </FieldWrapper>
 
-                    <FieldWrapper label="Evidências (Link do Print)" icon={<Info size={18}/>}>
-                      <input name="evidencias" type="url" required placeholder="Cole o link do Google Drive ou Print aqui" className="custom-input" />
+                    {/* SEÇÃO DE ARQUIVOS MÚLTIPLOS E OPCIONAIS */}
+                    <FieldWrapper label={`Evidências (Opcional - Máx 5)`} icon={<Info size={18}/>}>
+                      <div className="space-y-4">
+                        {/* Grid de Preview de Arquivos Selecionados */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-xl animate-in fade-in zoom-in duration-200">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <Paperclip size={16} className="text-blue-500 flex-shrink-0" />
+                                <span className="text-xs font-bold text-blue-700 truncate">{file.name}</span>
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => removeFile(index)}
+                                className="p-1 hover:bg-blue-200 rounded-full text-blue-600 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Botão para Adicionar mais arquivos (mostra apenas se < 5) */}
+                          {selectedFiles.length < 5 && (
+                            <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all group">
+                              <input 
+                                type="file" 
+                                multiple 
+                                accept="image/*" 
+                                onChange={handleFileChange} 
+                                className="hidden" 
+                                ref={fileInputRef}
+                              />
+                              <Plus size={16} className="text-slate-400 group-hover:text-blue-500" />
+                              <span className="text-xs font-bold text-slate-500 uppercase">Adicionar Print</span>
+                            </label>
+                          )}
+                        </div>
+                        
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
+                          PNG ou JPG até 5MB cada.
+                        </p>
+                      </div>
                     </FieldWrapper>
                   </section>
                 )}
@@ -236,7 +298,7 @@ export default function ZubalePortal() {
   );
 }
 
-// COMPONENTES AUXILIARES DE UI
+// COMPONENTES AUXILIARES
 function SectionTitle({ number, title }: { number: string, title: string }) {
   return (
     <div className="flex items-center gap-3">
