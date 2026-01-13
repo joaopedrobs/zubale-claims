@@ -4,9 +4,11 @@ import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { submitContestation, type FormState } from "./actions";
 import { 
   CheckCircle2, Loader2, Search, Building2, 
-  Calendar, Phone, Mail, Hash, User, FileText, AlertCircle, Info, Paperclip, X, Plus
+  Calendar, Phone, Mail, Hash, User, FileText, 
+  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck 
 } from "lucide-react";
 
+// Lista de bônus corrigida para evitar erros de encoding
 const BONUS_TYPES = [
   "Indicação de Novo Zubalero", "Meta de Produtividade", "Bônus de Domingo",
   "Bônus de Fim de Ano", "Bônus Adicional 2 Turnos", "Conectividade",
@@ -18,10 +20,9 @@ export default function ZubalePortal() {
   const [bonusSelected, setBonusSelected] = useState("");
   const [storeSearch, setStoreSearch] = useState("");
   const [phone, setPhone] = useState("+55");
-  
-  // Estado para gerenciar múltiplos arquivos
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   
   const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(true);
@@ -31,6 +32,7 @@ export default function ZubalePortal() {
     null
   );
 
+  // Carrega a lista completa de lojas do Google Sheets via API Route
   useEffect(() => {
     async function loadStores() {
       try {
@@ -46,12 +48,13 @@ export default function ZubalePortal() {
     loadStores();
   }, []);
 
+  // Filtra as sugestões para o datalist (limite de 100 para performance do navegador)
   const filteredStores = useMemo(() => {
     if (!storeSearch) return [];
     const searchLower = storeSearch.toLowerCase();
     return storesDatabase
       .filter(s => s.toLowerCase().includes(searchLower))
-      .slice(0, 50);
+      .slice(0, 100); 
   }, [storeSearch, storesDatabase]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,16 +63,14 @@ export default function ZubalePortal() {
     setPhone("+" + val.substring(0, 13)); 
   };
 
-  // Lógica para adicionar arquivos respeitando o limite de 5
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       setSelectedFiles(prev => {
         const totalFiles = [...prev, ...newFiles];
-        return totalFiles.slice(0, 5); // Garante o limite de 5
+        return totalFiles.slice(0, 5);
       });
     }
-    // Reseta o input para permitir selecionar o mesmo arquivo novamente se for removido
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -77,9 +78,17 @@ export default function ZubalePortal() {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Wrapper para garantir que todos os arquivos do estado sejam enviados no FormData
   const handleSubmit = (formData: FormData) => {
-    formData.delete("evidencias_files"); // Limpa o input nativo
+    setLocalError(null);
+    const lojaDigitada = formData.get("loja")?.toString();
+
+    // VALIDAÇÃO RÍGIDA: Impede o envio se a loja não estiver na lista oficial
+    if (!storesDatabase.includes(lojaDigitada || "")) {
+      setLocalError("Loja inválida. Por favor, selecione uma opção da lista oficial.");
+      return;
+    }
+
+    formData.delete("evidencias_files");
     selectedFiles.forEach(file => {
       formData.append("evidencias_files", file);
     });
@@ -87,73 +96,71 @@ export default function ZubalePortal() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
-              <Building2 className="text-white" size={24} />
-            </div>
-            <div>
-              <span className="text-xl font-black text-slate-900 block leading-tight tracking-tighter">
-                ZUBALE <span className="text-blue-600">BRASIL</span>
-              </span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Portal de Contestações</span>
-            </div>
+            <img 
+              src="/logo_zubale.png" 
+              alt="Zubale Logo"
+              className="h-7 md:h-9 w-auto object-contain"
+            />
           </div>
-          <div className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black border border-blue-100 hidden sm:block">
-            AMBIENTE SEGURO
+          
+          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full text-[11px] font-black border border-emerald-100 shadow-sm">
+            <ShieldCheck size={14} />
+            SISTEMA PROTEGIDO
           </div>
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-6 pt-12">
-        <div className="mb-12">
-          <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tight italic">
-            Solicitar Revisão <br/> de Pagamento
+      <main className="max-w-4xl mx-auto px-6 pt-16">
+        <div className="text-center mb-16 animate-in fade-in duration-700">
+          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight leading-tight italic">
+            Contestação de <span className="text-blue-600">Pagamentos</span>
           </h1>
-          <p className="text-slate-500 font-medium text-lg max-w-xl">
-            Preencha os dados abaixo para contestar divergências em bônus ou itens não pagos.
+          <p className="text-slate-500 font-medium text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+            Portal oficial para Zubaleros reportarem divergências em bônus, metas ou itens não pagos de forma rápida e segura.
           </p>
         </div>
 
         {state?.success ? (
           <SuccessView />
         ) : (
-          <form action={handleSubmit} className="space-y-6">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
-              <div className="p-8 md:p-12 space-y-10">
+          <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden">
+              <div className="p-8 md:p-14 space-y-12">
                 
-                <section className="space-y-6">
-                  <SectionTitle number="01" title="Sua Identificação" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InputField label="Protocolo Suporte" name="protocolo" icon={<Hash size={18}/>} placeholder="Ex: 20250001010101" required />
-                    <InputField label="Nome Completo" name="nome" icon={<User size={18}/>} placeholder="Nome como no App" required />
-                    <InputField label="Telefone" name="telefone" icon={<Phone size={18}/>} value={phone} onChange={handlePhoneChange} placeholder="+5511999999999" required />
-                    <InputField label="E-mail Cadastrado" name="email" type="email" icon={<Mail size={18}/>} placeholder="exemplo@zubale.com" required />
+                <section className="space-y-8">
+                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados básicos para localizarmos seu perfil" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" icon={<Hash size={18}/>} placeholder="Ex: 20250001..." required />
+                    <InputField label="NOME COMPLETO" name="nome" icon={<User size={18}/>} placeholder="Conforme documento" required />
+                    <InputField label="TELEFONE DE CADASTRO" name="telefone" icon={<Phone size={18}/>} value={phone} onChange={handlePhoneChange} placeholder="+55..." required />
+                    <InputField label="E-MAIL DE CADASTRO" name="email" type="email" icon={<Mail size={18}/>} placeholder="exemplo@zubale.com" required />
                   </div>
                 </section>
 
-                <section className="space-y-6">
-                  <SectionTitle number="02" title="Dados da Atuação" />
-                  <div className="space-y-6">
-                    <FieldWrapper label="O que deseja contestar?" icon={<AlertCircle size={18}/>}>
+                <section className="space-y-8 pt-8 border-t border-slate-50">
+                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
+                  <div className="space-y-8">
+                    <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={18}/>}>
                       <select 
                         name="tipoSolicitacao" 
                         required 
                         className="custom-select"
                         onChange={(e) => setBonusSelected(e.target.value)}
                       >
-                        <option value="">Selecione o tipo de bônus</option>
+                        <option value="">Selecione o tipo de bônus...</option>
                         {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                     </FieldWrapper>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <InputField label="Data da Contestação" name="data_contestacao" type="date" icon={<Calendar size={18}/>} required />
-                      <FieldWrapper label="Turno Atuado" icon={<Hash size={18}/>}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <InputField label="DATA DA CONTESTAÇÃO" name="data_contestacao" type="date" icon={<Calendar size={18}/>} required />
+                      <FieldWrapper label="TURNO ATUADO" icon={<Hash size={18}/>}>
                         <select name="turno" required className="custom-select">
-                          <option value="">Selecione</option>
+                          <option value="">Selecione...</option>
                           <option value="Manhã">Manhã</option>
                           <option value="Tarde">Tarde</option>
                           <option value="Noite">Noite</option>
@@ -162,15 +169,16 @@ export default function ZubalePortal() {
                       </FieldWrapper>
                     </div>
 
-                    <FieldWrapper label="Loja Atuada" icon={<Search size={18}/>}>
-                      <div className="relative">
+                    <FieldWrapper label="LOJA ATUADA (Pesquise na lista)" icon={<Search size={18}/>}>
+                      <div className="relative group">
                         <input 
                           list="stores-list" 
-                          placeholder={isLoadingStores ? "Carregando lojas..." : "Digite para pesquisar a loja..."}
-                          className="custom-input pl-4"
+                          placeholder={isLoadingStores ? "Carregando lista oficial..." : "Digite o nome exato da loja..."}
+                          className="custom-input pl-4 uppercase"
                           onChange={(e) => setStoreSearch(e.target.value)}
                           name="loja"
                           required
+                          autoComplete="off"
                           disabled={isLoadingStores}
                         />
                         <datalist id="stores-list">
@@ -187,131 +195,132 @@ export default function ZubalePortal() {
                 </section>
 
                 {bonusSelected && (
-                  <section className="space-y-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <SectionTitle number="03" title="Detalhes Financeiros" />
+                  <section className="space-y-8 pt-8 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <SectionHeader number="03" title="DETALHES FINANCEIROS" subtitle="Forneça valores e evidências do caso" />
                     
                     {bonusSelected === "Indicação de Novo Zubalero" ? (
-                      <InputField label="Código de indicação utilizado" name="codigo_indicacao" icon={<Hash size={18}/>} required />
+                      <InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" icon={<Hash size={18}/>} required />
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {bonusSelected === "SKU / Item" && (
                           <div className="md:col-span-2">
-                            <InputField label="Código do Item / SKU" name="sku_codigo" icon={<Hash size={18}/>} required />
+                            <InputField label="CÓDIGO DO ITEM / SKU" name="sku_codigo" icon={<Hash size={18}/>} required />
                           </div>
                         )}
-                        <InputField label="Valor Recebido (R$)" name="valor_recebido" type="number" step="0.01" icon={<Hash size={18}/>} placeholder="0,00" required />
-                        <InputField label="Valor Anunciado (R$)" name="valor_anunciado" type="number" step="0.01" icon={<Hash size={18}/>} placeholder="0,00" required />
+                        <InputField label="VALOR RECEBIDO (R$)" name="valor_recebido" type="number" step="0.01" icon={<Hash size={18}/>} placeholder="0,00" required />
+                        <InputField label="VALOR ANUNCIADO (R$)" name="valor_anunciado" type="number" step="0.01" icon={<Hash size={18}/>} placeholder="0,00" required />
                       </div>
                     )}
 
-                    <FieldWrapper label="Explique seu caso" icon={<FileText size={18}/>}>
-                      <textarea name="detalhamento" required rows={4} className="custom-input resize-none" placeholder="Conte-nos o que aconteceu em detalhes..."></textarea>
+                    <FieldWrapper label="EXPLIQUE SEU CASO" icon={<FileText size={18}/>}>
+                      <textarea name="detalhamento" required rows={4} className="custom-input resize-none py-4" placeholder="Conte-nos o que aconteceu em detalhes..."></textarea>
                     </FieldWrapper>
 
-                    {/* SEÇÃO DE ARQUIVOS MÚLTIPLOS E OPCIONAIS */}
-                    <FieldWrapper label={`Evidências (Opcional - Máx 5)`} icon={<Info size={18}/>}>
+                    <FieldWrapper label={`EVIDÊNCIAS (OPCIONAL - MÁX 5)`} icon={<Paperclip size={18}/>}>
                       <div className="space-y-4">
-                        {/* Grid de Preview de Arquivos Selecionados */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {selectedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-xl animate-in fade-in zoom-in duration-200">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <Paperclip size={16} className="text-blue-500 flex-shrink-0" />
-                                <span className="text-xs font-bold text-blue-700 truncate">{file.name}</span>
+                            <div key={index} className="flex items-center justify-between p-4 bg-blue-50/50 border border-blue-100 rounded-2xl animate-in fade-in zoom-in duration-200">
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <FileText size={16} className="text-blue-600 flex-shrink-0" />
+                                <span className="text-xs font-bold text-blue-900 truncate">{file.name}</span>
                               </div>
-                              <button 
-                                type="button" 
-                                onClick={() => removeFile(index)}
-                                className="p-1 hover:bg-blue-200 rounded-full text-blue-600 transition-colors"
-                              >
+                              <button type="button" onClick={() => removeFile(index)} className="p-1.5 hover:bg-blue-200/50 rounded-full text-blue-600 transition-colors">
                                 <X size={14} />
                               </button>
                             </div>
                           ))}
 
-                          {/* Botão para Adicionar mais arquivos (mostra apenas se < 5) */}
                           {selectedFiles.length < 5 && (
-                            <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all group">
-                              <input 
-                                type="file" 
-                                multiple 
-                                accept="image/*" 
-                                onChange={handleFileChange} 
-                                className="hidden" 
-                                ref={fileInputRef}
-                              />
-                              <Plus size={16} className="text-slate-400 group-hover:text-blue-500" />
-                              <span className="text-xs font-bold text-slate-500 uppercase">Adicionar Print</span>
+                            <label className="flex items-center justify-center gap-3 p-4 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all group">
+                              <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" ref={fileInputRef} />
+                              <Plus size={18} className="text-slate-400 group-hover:text-blue-500" />
+                              <span className="text-xs font-black text-slate-500 uppercase tracking-wider group-hover:text-blue-600">Adicionar Print</span>
                             </label>
                           )}
                         </div>
-                        
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest ml-1">
-                          PNG ou JPG até 5MB cada.
-                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest ml-1">PNG ou JPG até 5MB cada.</p>
                       </div>
                     </FieldWrapper>
                   </section>
                 )}
               </div>
 
-              {state?.error && (
-                <div className="mx-8 mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold">
-                  <AlertCircle size={20} /> {state.error}
+              {(state?.error || localError) && (
+                <div className="mx-8 mb-8 p-5 bg-red-50 border border-red-100 rounded-3xl flex items-center gap-4 text-red-700 text-sm font-bold animate-pulse">
+                  <AlertCircle size={24} className="flex-shrink-0" />
+                  {localError || state?.error}
                 </div>
               )}
 
-              <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <div className="p-10 bg-slate-50/50 border-t border-slate-100">
                 <button
                   type="submit"
                   disabled={isPending || !bonusSelected}
-                  className="w-full bg-blue-600 text-white font-black py-5 rounded-[1.5rem] hover:bg-blue-700 transition-all active:scale-[0.98] disabled:opacity-40 flex justify-center items-center gap-3 text-xl shadow-xl shadow-blue-200"
+                  className="w-full bg-blue-600 text-white font-black py-6 rounded-[2rem] hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-200 transition-all active:scale-[0.98] disabled:opacity-40 flex justify-center items-center gap-4 text-xl shadow-lg shadow-blue-100 uppercase tracking-tight"
                 >
-                  {isPending ? <Loader2 className="animate-spin" /> : "ENVIAR CONTESTAÇÃO"}
+                  {isPending ? (
+                    <>
+                      <Loader2 className="animate-spin" size={24} />
+                      Enviando Solicitação...
+                    </>
+                  ) : "Confirmar e Enviar Contestação"}
                 </button>
               </div>
             </div>
           </form>
         )}
+
+        <footer className="mt-12 text-center text-slate-400 text-sm font-medium">
+          © {new Date().getFullYear()} Zubale Brasil · Todos os direitos reservados
+        </footer>
       </main>
 
       <style jsx global>{`
         .custom-input, .custom-select {
           width: 100%;
           border: 2px solid #f1f5f9;
-          padding: 1rem 1.25rem;
+          padding: 1.25rem 1.5rem;
           border-radius: 1.25rem;
           background: #f8fafc;
-          font-weight: 600;
+          font-weight: 700;
           color: #0f172a;
-          transition: all 0.2s ease;
+          transition: all 0.25s ease;
+          font-size: 0.95rem;
         }
         .custom-input:focus, .custom-select:focus {
           outline: none;
           border-color: #2563eb;
           background: white;
-          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+          box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.08);
+          transform: translateY(-1px);
         }
-        .custom-input::placeholder { color: #cbd5e1; }
+        .custom-input::placeholder { color: #94a3b8; font-weight: 500; }
+        select.custom-select { cursor: pointer; }
       `}</style>
     </div>
   );
 }
 
 // COMPONENTES AUXILIARES
-function SectionTitle({ number, title }: { number: string, title: string }) {
+function SectionHeader({ number, title, subtitle }: { number: string, title: string, subtitle: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="bg-slate-900 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg">{number}</span>
-      <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{title}</h2>
+    <div className="flex items-start gap-4">
+      <span className="bg-slate-900 text-white text-[11px] font-black w-7 h-7 flex items-center justify-center rounded-xl shadow-md flex-shrink-0 mt-1">
+        {number}
+      </span>
+      <div>
+        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2>
+        <p className="text-sm font-medium text-slate-400 mt-1">{subtitle}</p>
+      </div>
     </div>
   );
 }
 
 function FieldWrapper({ label, icon, children }: { label: string, icon: any, children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
         {icon} {label}
       </label>
       {children}
@@ -329,14 +338,19 @@ function InputField({ label, icon, ...props }: any) {
 
 function SuccessView() {
   return (
-    <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
-      <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
-        <CheckCircle2 size={48} />
+    <div className="bg-white p-12 md:p-20 rounded-[3.5rem] shadow-2xl shadow-blue-100 border border-white text-center animate-in zoom-in duration-500">
+      <div className="w-28 h-28 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner">
+        <CheckCircle2 size={56} />
       </div>
-      <h2 className="text-3xl font-black text-slate-900 mb-4">Recebemos seu reporte!</h2>
-      <p className="text-slate-500 font-medium mb-10">Nossa equipe de operações irá analisar <br/> as informações e retornará via E-mail.</p>
-      <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all">
-        REALIZAR OUTRO REPORTE
+      <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight italic">Solicitação Recebida!</h2>
+      <p className="text-slate-500 font-medium text-lg mb-12 max-w-sm mx-auto leading-relaxed">
+        Seu reporte foi registrado com sucesso. Nossa equipe de operações analisará o caso e retornará via e-mail.
+      </p>
+      <button 
+        onClick={() => window.location.reload()} 
+        className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 hover:shadow-xl transition-all active:scale-95 uppercase text-sm tracking-widest"
+      >
+        Novo Reporte
       </button>
     </div>
   );

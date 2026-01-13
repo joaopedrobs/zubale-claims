@@ -1,7 +1,6 @@
-// app/api/stores/route.ts
 import { NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic'; // <--- ADICIONE ESTA LINHA
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const sheetId = process.env.GOOGLE_SHEET_ID;
@@ -12,8 +11,8 @@ export async function GET() {
     return NextResponse.json({ error: "Configuração ausente" }, { status: 500 });
   }
 
-  // Aumentamos o range para garantir que pegamos tudo (ex: até a linha 2000)
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A2:A2000?key=${apiKey}`;
+  // Buscamos um range bem largo (A2:A5000) para garantir que nada fique de fora
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A2:A5000?key=${apiKey}`;
 
   try {
     const response = await fetch(url, { next: { revalidate: 3600 } });
@@ -21,19 +20,17 @@ export async function GET() {
 
     if (!data.values) return NextResponse.json([]);
 
-    // 1. Transformamos em array simples
-    // 2. Removemos espaços extras
-    // 3. Usamos "new Set()" para eliminar duplicados automaticamente
+    // Limpeza profunda: remove nulos, espaços extras e duplicatas
     const uniqueStores = Array.from(
       new Set(
         data.values
           .map((row: any) => row[0]?.toString().trim())
-          .filter((name: string) => name && name.length > 0)
+          .filter((name: string) => name && name.length > 1)
       )
     ).sort();
 
     return NextResponse.json(uniqueStores);
   } catch (error) {
-    return NextResponse.json({ error: "Erro ao buscar lojas" }, { status: 500 });
+    return NextResponse.json({ error: "Falha ao carregar lista oficial" }, { status: 500 });
   }
 }
