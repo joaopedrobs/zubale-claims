@@ -7,6 +7,7 @@ import {
   Calendar, Phone, Mail, Hash, User, FileText, AlertCircle, Info
 } from "lucide-react";
 
+// Lista de bônus com caracteres corrigidos
 const BONUS_TYPES = [
   "Indicação de Novo Zubalero", "Meta de Produtividade", "Bônus de Domingo",
   "Bônus de Fim de Ano", "Bônus Adicional 2 Turnos", "Conectividade",
@@ -14,26 +15,46 @@ const BONUS_TYPES = [
   "Bônus Data Comemorativa", "Bônus de Treinamento", "Bônus Especial", "SKU / Item"
 ];
 
-// Lista inicial de lojas (substituiremos pela API do Sheets em breve)
-const STORES_DATABASE = ["Carrefour - São Paulo", "Big - Curitiba", "Sam's Club - Rio", "Pão de Açúcar - BH", "Assaí - Campinas"];
-
 export default function ZubalePortal() {
   const [bonusSelected, setBonusSelected] = useState("");
   const [storeSearch, setStoreSearch] = useState("");
   const [phone, setPhone] = useState("+55");
+  
+  // Estados para integração com o Google Sheets
+  const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
+  const [isLoadingStores, setIsLoadingStores] = useState(true);
 
-  // useActionState agora recebe a action corrigida e o estado inicial null
   const [state, formAction, isPending] = useActionState<FormState, FormData>(
     submitContestation, 
     null
   );
 
-  const filteredStores = useMemo(() => 
-    STORES_DATABASE.filter(s => s.toLowerCase().includes(storeSearch.toLowerCase())),
-    [storeSearch]
-  );
+  // Busca as lojas da API Route que criamos
+  useEffect(() => {
+    async function loadStores() {
+      try {
+        const response = await fetch("/api/stores");
+        const data = await response.json();
+        setStoresDatabase(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Erro ao carregar lojas");
+      } finally {
+        setIsLoadingStores(false);
+      }
+    }
+    loadStores();
+  }, []);
 
-  // Validação e Máscara de Telefone: +55 (11) 95551-5313 formatado para +5511955515313
+  const filteredStores = useMemo(() => {
+  if (!storeSearch) return storesDatabase.slice(0, 0);
+
+  const searchLower = storeSearch.toLowerCase();
+  
+  return storesDatabase
+    .filter(s => s.toLowerCase().includes(searchLower))
+    .slice(0, 50);
+}, [storeSearch, storesDatabase]);
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
     if (!val.startsWith("55")) val = "55" + val;
@@ -42,7 +63,6 @@ export default function ZubalePortal() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      {/* HEADER DINÂMICO */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -123,15 +143,21 @@ export default function ZubalePortal() {
                       <div className="relative">
                         <input 
                           list="stores-list" 
-                          placeholder="Digite para pesquisar a loja..." 
+                          placeholder={isLoadingStores ? "Carregando lojas..." : "Digite para pesquisar a loja..."}
                           className="custom-input pl-4"
                           onChange={(e) => setStoreSearch(e.target.value)}
                           name="loja"
                           required
+                          disabled={isLoadingStores}
                         />
                         <datalist id="stores-list">
-                          {filteredStores.map(s => <option key={s} value={s} />)}
+                          {filteredStores.map((s, i) => <option key={i} value={s} />)}
                         </datalist>
+                        {isLoadingStores && (
+                          <div className="absolute right-4 top-4">
+                            <Loader2 className="animate-spin text-blue-500" size={18} />
+                          </div>
+                        )}
                       </div>
                     </FieldWrapper>
                   </div>
