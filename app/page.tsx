@@ -92,11 +92,13 @@ export default function ZubalePortal() {
     const protocolo = formData.get("protocolo")?.toString() || "";
     const telefoneLimpo = phone.replace(/\D/g, "");
 
+    // VALIDAÇÃO: Mínimo 12 dígitos para protocolo
     if (protocolo.length < 12) {
       setLocalError("O número do protocolo deve ter pelo menos 12 dígitos.");
       return;
     }
 
+    // VALIDAÇÃO: 11 dígitos para telefone (DDD + número) após o 55
     if (telefoneLimpo.length !== 13) {
       setLocalError("O telefone deve conter o DDD e o número completo (11 dígitos).");
       return;
@@ -127,10 +129,10 @@ export default function ZubalePortal() {
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
         <div className="text-center mb-10 md:mb-12 animate-in fade-in duration-700">
-          <h1 className="text-3xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6 tracking-tight leading-tight italic">
+          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6 tracking-tight leading-tight italic">
             Contestação de <span className="text-blue-600">Pagamentos</span>
           </h1>
-          <p className="text-slate-500 font-medium text-base md:text-xl max-w-2xl mx-auto leading-relaxed">
+          <p className="text-slate-500 font-medium text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
             Portal oficial para Zubaleros reportarem divergências em bônus, metas ou itens não pagos de forma rápida e segura.
           </p>
         </div>
@@ -139,75 +141,68 @@ export default function ZubalePortal() {
           <SuccessView />
         ) : (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* CARD DE REGRAS E DIRETRIZES */}
-            <div className="bg-blue-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
+            {/* CARD DE DIRETRIZES PROFISSIONAL */}
+            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
               <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110">
                 <Info size={160} />
               </div>
-              <h3 className="text-lg md:text-xl font-black mb-4 flex items-center gap-2 italic uppercase tracking-tight">
+              <h3 className="text-xl md:text-xl font-black mb-5 flex items-center gap-2 italic uppercase tracking-tight">
                 <Info size={24} /> Diretrizes Importantes
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="flex gap-3">
-                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><Clock size={20} /></div>
-                  <p className="text-sm md:text-base font-semibold leading-snug">
-                    O prazo mínimo para contestação é de <span className="underline decoration-blue-300 underline-offset-4">3 dias úteis</span> após a realização da tarefa, tempo necessário para o processamento bancário dos bônus.
+                <div className="flex gap-4">
+                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><Clock size={22} /></div>
+                  <p className="text-base font-semibold leading-snug">
+                    O prazo mínimo para contestação é de <span className="underline decoration-blue-300 underline-offset-4 font-black">3 dias úteis</span> após a tarefa.
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><CopyX size={20} /></div>
-                  <p className="text-sm md:text-base font-semibold leading-snug">
-                    Protocolos de contestações anteriores não podem ser reutilizados. Solicitações duplicadas serão <span className="text-blue-100 font-black">negadas automaticamente</span> pelo sistema.
+                <div className="flex gap-4">
+                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><CopyX size={22} /></div>
+                  <p className="text-base font-semibold leading-snug">
+                    Protocolos duplicados ou reutilizados serão <span className="text-blue-100 font-black">negados automaticamente</span>.
                   </p>
                 </div>
               </div>
             </div>
 
             <form action={handleSubmit} className="space-y-6 md:space-y-8">
-              <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden">
-                <div className="p-6 md:p-14 space-y-8 md:space-y-12">
+              <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden">
+                <div className="p-7 md:p-14 space-y-9 md:space-y-12">
                   
-                  <section className="space-y-6 md:space-y-8">
+                  <section className="space-y-7 md:space-y-8">
                     <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados básicos para localizarmos seu perfil" />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                      <div className="space-y-1">
-                        <InputField 
-                            label="NÚMERO DO PROTOCOLO" 
-                            name="protocolo" 
-                            placeholder="Mínimo 12 dígitos" 
-                            type="text"
-                            inputMode="numeric"
-                            required 
-                        />
-                        <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Proibido duplicar protocolos anteriores</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                      <div className="space-y-2">
+                        <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" placeholder="Mínimo 12 dígitos" type="text" inputMode="numeric" required />
+                        <p className="text-[11px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Proibido duplicar protocolos anteriores</p>
                       </div>
                       <InputField label="NOME COMPLETO" name="nome" placeholder="Conforme documento" required />
-                      <div className="space-y-1">
-                        <InputField label="TELEFONE DE CADASTRO (COM DDD)" name="telefone" value={phone} onChange={handlePhoneChange} placeholder="+55 (DDD) 99999-9999" required />
-                        <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">
-                          * Telefone incorreto impede a identificação no sistema e o seguimento da contestação
+                      <div className="space-y-2">
+                        <InputField label="TELEFONE (DDD + NÚMERO)" name="telefone" value={phone} onChange={handlePhoneChange} placeholder="+55 (DDD) 99999-9999" required />
+                        <p className="text-[11px] font-bold text-slate-500 italic px-2 leading-tight">
+                          * Identificação impossível se o telefone estiver incorreto.
                         </p>
                       </div>
                       <InputField label="E-MAIL DE CADASTRO" name="email" type="email" placeholder="exemplo@zubale.com" required />
                     </div>
                   </section>
 
-                  <section className="space-y-6 md:space-y-8 pt-8 border-t border-slate-50">
+                  <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50">
                     <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
-                    <div className="space-y-6 md:space-y-8">
-                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={18}/>}>
+                    <div className="space-y-7 md:space-y-8">
+                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={20}/>}>
                         <select name="tipoSolicitacao" required className="custom-select" onChange={(e) => setBonusSelected(e.target.value)}>
                           <option value="">Selecione o tipo de bônus...</option>
                           {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
                         </select>
                       </FieldWrapper>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        <div className="space-y-2">
                           <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" required />
-                          <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Respeite o prazo de 3 dias úteis</p>
+                          <p className="text-[11px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Respeite o prazo de 3 dias úteis</p>
                         </div>
-                        <FieldWrapper label="TURNO ATUADO" icon={<Hash size={18}/>}>
+                        <FieldWrapper label="TURNO ATUADO" icon={<Hash size={20}/>}>
                           <select name="turno" required className="custom-select">
                             <option value="">Selecione o turno...</option>
                             <option value="Manhã">Manhã</option>
@@ -218,49 +213,25 @@ export default function ZubalePortal() {
                         </FieldWrapper>
                       </div>
 
-                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" icon={<Search size={18}/>}>
+                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" icon={<Search size={20}/>}>
                         <div className="relative" ref={dropdownRef}>
-                          <div 
-                            className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`}
-                            onClick={() => !isLoadingStores && setIsDropdownOpen(true)}
-                          >
-                            <input 
-                              type="text"
-                              placeholder={isLoadingStores ? "Carregando..." : "BUSCAR LOJA..."}
-                              className="w-full p-4 bg-transparent font-bold text-slate-900 outline-none uppercase placeholder:text-slate-300 placeholder:font-medium text-sm md:text-base"
-                              value={storeSearch}
-                              onChange={(e) => {
-                                setStoreSearch(e.target.value);
-                                setIsDropdownOpen(true);
-                              }}
-                              autoComplete="off"
-                              disabled={isLoadingStores}
-                            />
-                            <ChevronDown className={`mr-4 transition-transform text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} size={20} />
+                          <div className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`} onClick={() => !isLoadingStores && setIsDropdownOpen(true)}>
+                            <input type="text" placeholder={isLoadingStores ? "Carregando..." : "BUSCAR LOJA..."} className="w-full p-5 bg-transparent font-bold text-slate-900 outline-none uppercase placeholder:text-slate-300 text-base md:text-lg" value={storeSearch} onChange={(e) => { setStoreSearch(e.target.value); setIsDropdownOpen(true); }} autoComplete="off" disabled={isLoadingStores} />
+                            <ChevronDown className={`mr-4 transition-transform text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} size={22} />
                           </div>
 
                           {isDropdownOpen && (
-                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
                               <div className="max-h-[250px] md:max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {filteredStores.length > 0 ? (
                                   filteredStores.map((loja, i) => (
-                                    <div 
-                                      key={i}
-                                      className="px-5 py-3.5 hover:bg-blue-50 cursor-pointer text-xs md:text-sm font-bold text-slate-700 border-b border-slate-50 last:border-none transition-colors flex items-center gap-3 uppercase"
-                                      onClick={() => {
-                                        setStoreSearch(loja);
-                                        setIsDropdownOpen(false);
-                                        setLocalError(null);
-                                      }}
-                                    >
-                                      <Building2 size={16} className="text-slate-300" />
+                                    <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm md:text-base font-bold text-slate-700 border-b border-slate-50 last:border-none transition-colors flex items-center gap-3 uppercase" onClick={() => { setStoreSearch(loja); setIsDropdownOpen(false); setLocalError(null); }}>
+                                      <Building2 size={18} className="text-slate-300" />
                                       {loja}
                                     </div>
                                   ))
                                 ) : (
-                                  <div className="p-8 text-center">
-                                    <p className="text-sm font-bold text-slate-400">Nenhuma loja encontrada.</p>
-                                  </div>
+                                  <div className="p-8 text-center"><p className="text-base font-bold text-slate-400">Nenhuma loja encontrada.</p></div>
                                 )}
                               </div>
                             </div>
@@ -271,29 +242,30 @@ export default function ZubalePortal() {
                   </section>
 
                   {bonusSelected && (
-                    <section className="space-y-6 md:space-y-8 pt-8 border-t border-slate-50">
+                    <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50">
                       <SectionHeader number="03" title="DETALHES FINANCEIROS" subtitle="Forneça valores e evidências do caso" />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        {/* Step 1 para números inteiros */}
                         <InputField label="VALOR RECEBIDO (R$)" name="valor_recebido" type="number" step="1" placeholder="0" required />
                         <InputField label="VALOR ANUNCIADO (R$)" name="valor_anunciado" type="number" step="1" placeholder="0" required />
                       </div>
-                      <FieldWrapper label="EXPLIQUE SEU CASO" icon={<FileText size={18}/>}>
-                        <textarea name="detalhamento" required rows={4} className="custom-input resize-none py-4" placeholder="Descreva o ocorrido..." />
+                      <FieldWrapper label="EXPLIQUE SEU CASO" icon={<FileText size={20}/>}>
+                        <textarea name="detalhamento" required rows={4} className="custom-input resize-none py-5" placeholder="Descreva o ocorrido..." />
                       </FieldWrapper>
 
-                      <FieldWrapper label={`EVIDÊNCIAS (OPCIONAL - MÁX 5)`} icon={<Paperclip size={18}/>}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                      <FieldWrapper label={`EVIDÊNCIAS (OPCIONAL - MÁX 5)`} icon={<Paperclip size={20}/>}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {selectedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-                              <span className="text-[10px] md:text-xs font-bold text-blue-700 truncate max-w-[150px]">{file.name}</span>
-                              <button type="button" onClick={() => removeFile(index)} className="text-blue-600 hover:bg-blue-100 p-1 rounded-full"><X size={14} /></button>
+                            <div key={index} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                              <span className="text-sm font-bold text-blue-700 truncate max-w-[200px]">{file.name}</span>
+                              <button type="button" onClick={() => removeFile(index)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-full"><X size={18} /></button>
                             </div>
                           ))}
                           {selectedFiles.length < 5 && (
-                            <label className="flex items-center justify-center gap-3 p-3 md:p-4 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all">
+                            <label className="flex items-center justify-center gap-3 p-5 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all">
                               <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" ref={fileInputRef} />
-                              <Plus size={18} className="text-slate-400" />
-                              <span className="text-[10px] md:text-xs font-black text-slate-500 uppercase">Anexar Print</span>
+                              <Plus size={22} className="text-slate-400" />
+                              <span className="text-sm font-black text-slate-500 uppercase tracking-widest">Anexar Print</span>
                             </label>
                           )}
                         </div>
@@ -303,19 +275,15 @@ export default function ZubalePortal() {
                 </div>
 
                 {(state?.error || localError) && (
-                  <div className="mx-6 md:mx-8 mb-6 md:mb-8 p-4 md:p-5 bg-red-50 border border-red-100 rounded-2xl md:rounded-3xl flex items-center gap-3 md:gap-4 text-red-700 text-xs md:text-sm font-bold">
-                    <AlertCircle size={20} className="flex-shrink-0" />
+                  <div className="mx-6 md:mx-8 mb-8 p-6 bg-red-50 border border-red-100 rounded-3xl flex items-center gap-4 text-red-700 text-sm md:text-base font-bold">
+                    <AlertCircle size={24} className="flex-shrink-0" />
                     {localError || state?.error}
                   </div>
                 )}
 
-                <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100">
-                  <button
-                    type="submit"
-                    disabled={isPending || !bonusSelected}
-                    className="w-full bg-blue-600 text-white font-black py-4 md:py-6 rounded-[1.25rem] md:rounded-[2rem] hover:bg-blue-700 transition-all active:scale-[0.98] disabled:opacity-40 flex justify-center items-center gap-3 md:gap-4 text-lg md:text-xl shadow-lg shadow-blue-100 uppercase"
-                  >
-                    {isPending ? <Loader2 className="animate-spin" size={24} /> : "Enviar Contestação"}
+                <div className="p-7 md:p-12 bg-slate-50/50 border-t border-slate-100">
+                  <button type="submit" disabled={isPending || !bonusSelected} className="w-full bg-blue-600 text-white font-black py-5 md:py-7 rounded-[1.5rem] md:rounded-[2rem] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-4 text-xl md:text-2xl shadow-xl shadow-blue-100 uppercase tracking-tight">
+                    {isPending ? <Loader2 className="animate-spin" size={28} /> : "Enviar Contestação"}
                   </button>
                 </div>
               </div>
@@ -323,95 +291,73 @@ export default function ZubalePortal() {
           </div>
         )}
 
-        <footer className="mt-8 md:mt-12 text-center text-slate-400 text-[10px] md:text-sm font-medium italic">
+        <footer className="mt-12 text-center text-slate-400 text-xs md:text-sm font-medium italic">
           © {new Date().getFullYear()} Zubale Brasil · Todos os direitos reservados
         </footer>
       </main>
 
       <style jsx global>{`
         .custom-input, .custom-select { 
-          width: 100%; 
-          border: 2px solid #f1f5f9; 
-          padding: 1rem 1.25rem; 
-          border-radius: 1.25rem; 
-          background: #f8fafc; 
-          font-weight: 700; 
-          color: #0f172a; 
-          transition: all 0.25s ease; 
-          font-size: 1.1rem; 
-          min-height: 3.5rem; 
-          appearance: none; 
+          width: 100%; border: 2px solid #f1f5f9; padding: 1.1rem 1.4rem; border-radius: 1.25rem; 
+          background: #f8fafc; font-weight: 700; color: #0f172a; transition: all 0.25s ease; 
+          font-size: 1.15rem; min-height: 4rem; appearance: none; 
         }
         @media (max-width: 768px) {
-          .custom-input, .custom-select {
-            padding: 0.75rem 1rem;
-            font-size: 1rem; 
-          }
+          .custom-input, .custom-select { padding: 1rem 1.2rem; font-size: 1.1rem; min-height: 3.8rem; }
         }
-        .custom-input:focus, .custom-select:focus { 
-          outline: none; 
-          border-color: #2563eb; 
-          background: white; 
-          box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.08); 
-          transform: translateY(-1px); 
-        }
+        .custom-input:focus, .custom-select:focus { outline: none; border-color: #2563eb; background: white; box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08); transform: translateY(-1px); }
         .custom-input::placeholder { color: #94a3b8; font-weight: 500; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
       `}</style>
     </div>
   );
 }
 
-function SectionHeader({ number, title, subtitle }: { number: string, title: string, subtitle: string }) {
+function SectionHeader({ number, title, subtitle }: any) {
   return (
-    <div className="flex items-start gap-3 md:gap-4">
-      <span className="bg-slate-900 text-white text-[10px] md:text-[11px] font-black w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-lg md:rounded-xl shadow-md flex-shrink-0 mt-1">{number}</span>
+    <div className="flex items-start gap-4">
+      <span className="bg-slate-900 text-white text-[12px] font-black w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-xl shadow-md flex-shrink-0 mt-1">{number}</span>
       <div>
-        <h2 className="text-base md:text-xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2>
-        <p className="text-[10px] md:text-sm font-medium text-slate-400 mt-1">{subtitle}</p>
+        <h2 className="text-lg md:text-2xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2>
+        <p className="text-xs md:text-base font-medium text-slate-400 mt-1.5">{subtitle}</p>
       </div>
     </div>
   );
 }
 
-function FieldWrapper({ label, icon, children }: { label: string, icon: any, children: React.ReactNode }) {
+function FieldWrapper({ label, icon, children }: any) {
   return (
-    <div className="space-y-2 md:space-y-3">
-      <label className="flex items-center gap-2 text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{icon} {label}</label>
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-[11px] md:text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{icon} {label}</label>
       {children}
     </div>
   );
 }
 
 function InputField({ label, icon, ...props }: any) {
-  return (
-    <FieldWrapper label={label} icon={icon}>
-      <input className="custom-input" {...props} />
-    </FieldWrapper>
-  );
+  return <FieldWrapper label={label} icon={icon}><input className="custom-input" {...props} /></FieldWrapper>;
 }
 
 function SuccessView() {
   return (
-    <div className="bg-white p-10 md:p-20 rounded-[2rem] md:rounded-[3.5rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
-      <div className="w-20 h-20 md:w-28 md:h-28 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 md:mb-10 shadow-inner">
-        <CheckCircle2 size={40} className="md:w-14 md:h-14" />
+    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
+      <div className="w-24 h-24 md:w-32 md:h-32 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner">
+        <CheckCircle2 size={60} />
       </div>
-      <h2 className="text-2xl md:text-4xl font-black text-slate-900 mb-4 italic">Solicitação Recebida!</h2>
-      <div className="text-slate-500 font-medium text-sm md:text-lg mb-8 md:mb-12 max-w-lg mx-auto leading-relaxed space-y-4">
-        <p>Seu reporte foi registrado com sucesso. Analisaremos o caso e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs md:text-sm text-left space-y-2">
-          <p className="font-bold text-slate-800 uppercase tracking-tighter">Lembre-se:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>Solicitações abertas antes de 3 dias úteis da tarefa serão negadas automaticamente.</li>
-            <li>O uso de protocolos duplicados anula a revisão.</li>
-            <li>A identificação do Zubalero depende de um número de telefone válido.</li>
+      <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 italic">Solicitação Recebida!</h2>
+      <div className="text-slate-600 font-medium text-lg md:text-xl mb-12 max-w-xl mx-auto leading-relaxed space-y-6">
+        <p>Reporte registrado com sucesso. Analisaremos e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
+        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm md:text-base text-left space-y-3 shadow-sm">
+          <p className="font-black text-slate-800 uppercase tracking-tight">Regras para Revisão:</p>
+          <ul className="list-disc list-inside space-y-2 text-slate-500">
+            <li>Pedidos feitos antes de 3 dias úteis da tarefa serão negados.</li>
+            <li>Protocolos duplicados anulam automaticamente a contestação.</li>
+            <li>A identificação depende de um telefone de cadastro válido.</li>
           </ul>
         </div>
       </div>
-      <button onClick={() => window.location.reload()} className="px-10 md:px-12 py-4 md:py-5 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black uppercase text-xs md:text-sm tracking-widest">Novo Reporte</button>
+      <button onClick={() => window.location.reload()} className="px-12 py-5 md:py-6 bg-slate-900 text-white rounded-2xl font-black uppercase text-sm md:text-lg tracking-widest hover:bg-slate-800 transition-all shadow-xl">Novo Reporte</button>
     </div>
   );
 }
