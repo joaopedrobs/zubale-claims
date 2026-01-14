@@ -4,336 +4,414 @@ import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { submitContestation, type FormState } from "./actions";
 import { 
   CheckCircle2, Loader2, Search, Building2, 
-  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, CopyX, Hash, FileText
+  Calendar, Phone, Mail, Hash, User, FileText, 
+  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, CopyX
 } from "lucide-react";
 
-const SP_HOLIDAYS = [
-  "2025-01-01", "2025-01-25", "2025-03-03", "2025-03-04", "2025-04-18", "2025-04-21", 
-  "2025-05-01", "2025-06-19", "2025-07-09", "2025-09-07", "2025-10-12", "2025-11-02", 
-  "2025-11-15", "2025-11-20", "2025-12-25",
-  "2026-01-01", "2026-01-25", "2026-02-16", "2026-02-17", "2026-04-03", "2026-04-21", 
-  "2026-05-01", "2026-06-04", "2026-07-09", "2026-09-07", "2026-10-12", "2026-11-02", 
-  "2026-11-15", "2026-11-20", "2026-12-25"
+// Lista de bônus corrigida e em ordem alfabética
+const BONUS_TYPES = [
+  "Bônus Adicional 2 Turnos",
+  "Bônus Data Comemorativa",
+  "Bônus de Domingo",
+  "Bônus de Fim de Ano",
+  "Bônus de Treinamento",
+  "Bônus Especial",
+  "Bônus Ofertado por WhatsApp ou Push App",
+  "Conectividade",
+  "Hora Certa",
+  "Indicação de Novo Zubalero",
+  "Meta de Produtividade",
+  "SKU / Item"
 ];
 
-const BONUS_TYPES = ["Bônus Adicional 2 Turnos", "Bônus Data Comemorativa", "Bônus de Domingo", "Bônus de Fim de Ano", "Bônus de Treinamento", "Bônus Especial", "Bônus Ofertado por WhatsApp ou Push App", "Conectividade", "Hora Certa", "Indicação de Novo Zubalero", "Meta de Produtividade", "SKU / Item"];
-
 export default function ZubalePortal() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("+55");
   const [bonusSelected, setBonusSelected] = useState("");
-  const [dataContestacao, setDataContestacao] = useState("");
-  const [turno, setTurno] = useState("");
-  const [storeSearch, setStoreSearch] = useState("");
-  const [valorRecebido, setValorRecebido] = useState("");
-  const [valorAnunciado, setValorAnunciado] = useState("");
-  const [detalhamento, setDetalhamento] = useState("");
+  const [phone, setPhone] = useState("+55");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(true);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [storeSearch, setStoreSearch] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const fieldRefs: Record<string, any> = {
-    protocolo: useRef<HTMLDivElement>(null),
-    nome: useRef<HTMLDivElement>(null),
-    telefone: useRef<HTMLDivElement>(null),
-    email: useRef<HTMLDivElement>(null),
-    tipoSolicitacao: useRef<HTMLDivElement>(null),
-    data_contestacao: useRef<HTMLDivElement>(null),
-    loja: useRef<HTMLDivElement>(null),
-  };
-
-  const [state, formAction, isPending] = useActionState<FormState, FormData>(submitContestation, null);
+  const [state, formAction, isPending] = useActionState<FormState, FormData>(
+    submitContestation, 
+    null
+  );
 
   useEffect(() => {
-    setIsMounted(true);
-    // Carregar Caches com segurança
-    setNome(localStorage.getItem("zubale_nome") || "");
-    setEmail(localStorage.getItem("zubale_email") || "");
-    setPhone(localStorage.getItem("zubale_phone") || "+55");
-    setBonusSelected(localStorage.getItem("temp_bonus") || "");
-    setDataContestacao(localStorage.getItem("temp_data") || "");
-    setTurno(localStorage.getItem("temp_turno") || "");
-    setStoreSearch(localStorage.getItem("temp_store") || "");
-    setValorRecebido(localStorage.getItem("temp_v_rec") || "");
-    setValorAnunciado(localStorage.getItem("temp_v_anu") || "");
-    setDetalhamento(localStorage.getItem("temp_det") || "");
+    async function loadStores() {
+      try {
+        const response = await fetch("/api/stores");
+        const data = await response.json();
+        setStoresDatabase(Array.isArray(data) ? data : []);
+      } catch (err) { console.error("Erro ao carregar lojas"); } 
+      finally { setIsLoadingStores(false); }
+    }
+    loadStores();
 
-    fetch("/api/stores").then(res => res.json()).then(data => {
-      setStoresDatabase(data);
-      setIsLoadingStores(false);
-    });
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsDropdownOpen(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const calculateLimitDate = () => {
-    let date = new Date();
-    let businessDaysFound = 0;
-    while (businessDaysFound < 3) {
-      date.setDate(date.getDate() - 1);
-      const day = date.getDay();
-      const str = date.toISOString().split('T')[0];
-      if (day !== 0 && day !== 6 && !SP_HOLIDAYS.includes(str)) businessDaysFound++;
-    }
-    return date;
-  };
+  const filteredStores = useMemo(() => {
+    if (!storeSearch) return storesDatabase;
+    const searchLower = storeSearch.toLowerCase();
+    return storesDatabase.filter(s => s.toLowerCase().includes(searchLower));
+  }, [storeSearch, storesDatabase]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
     if (!val.startsWith("55")) val = "55" + val;
-    const finalPhone = "+" + val.substring(0, 13);
-    setPhone(finalPhone); 
-    localStorage.setItem("zubale_phone", finalPhone);
+    setPhone("+" + val.substring(0, 13)); 
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const errors: Record<string, string> = {};
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...newFiles].slice(0, 5));
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (formData: FormData) => {
+    setLocalError(null);
+
     const protocolo = formData.get("protocolo")?.toString() || "";
     const telefoneLimpo = phone.replace(/\D/g, "");
 
-    // Validações Manuais para garantir o avanço
-    if (protocolo.length < 12) errors.protocolo = "O protocolo deve ter pelo menos 12 dígitos.";
-    if (!nome) errors.nome = "Informe seu nome completo.";
-    if (telefoneLimpo.length !== 13) errors.telefone = "DDD e número completos necessários (11 dígitos).";
-    if (!email) errors.email = "E-mail de cadastro obrigatório.";
-    if (!bonusSelected) errors.tipoSolicitacao = "Selecione o tipo de bônus.";
-    
-    if (dataContestacao) {
-      const taskDate = new Date(dataContestacao + "T00:00:00");
-      const limitDate = calculateLimitDate();
-      limitDate.setHours(0, 0, 0, 0);
-      if (taskDate > limitDate) errors.data_contestacao = "A contestação só pode ser aberta após 3 dias úteis da tarefa.";
-    }
-
-    if (!storesDatabase.includes(storeSearch)) errors.loja = "Selecione uma loja válida da lista oficial.";
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      const firstErrorKey = Object.keys(errors)[0];
-      fieldRefs[firstErrorKey]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (protocolo.length < 12) {
+      setLocalError("O número do protocolo deve ter pelo menos 12 dígitos.");
       return;
     }
 
-    localStorage.setItem("zubale_nome", nome);
-    localStorage.setItem("zubale_email", email);
-    setFieldErrors({});
+    if (telefoneLimpo.length !== 13) {
+      setLocalError("O telefone deve conter o DDD e o número completo (11 dígitos).");
+      return;
+    }
+
+    if (!storesDatabase.includes(storeSearch)) {
+      setLocalError("Por favor, selecione uma loja válida da lista oficial.");
+      return;
+    }
+
     formData.set("loja", storeSearch);
+    formData.delete("evidencias_files");
     selectedFiles.forEach(file => formData.append("evidencias_files", file));
-    
     formAction(formData);
   };
 
-  useEffect(() => {
-    if (state?.success) {
-      const tempKeys = ["temp_bonus", "temp_data", "temp_turno", "temp_store", "temp_v_rec", "temp_v_anu", "temp_det"];
-      tempKeys.forEach(k => localStorage.removeItem(k));
-    }
-  }, [state]);
-
-  if (!isMounted) return null; // Evita erro de hidratação no Vercel
-
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans text-slate-900">
+    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans">
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
           <img src="/logo_zubale.png" alt="Zubale Logo" className="h-7 md:h-9 w-auto object-contain" />
           <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-[11px] font-black border border-emerald-100 shadow-sm">
-            <ShieldCheck size={14} /> <span className="hidden xs:inline uppercase tracking-tighter">Sistema Protegido</span>
+            <ShieldCheck size={14} /> 
+            <span className="hidden xs:inline">SISTEMA PROTEGIDO</span>
           </div>
         </div>
       </nav>
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
-        <div className="text-center mb-10 md:mb-12">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight leading-tight italic">Contestação de <span className="text-blue-600">Pagamentos</span></h1>
-          <p className="text-blue-500 font-bold text-lg md:text-2xl mb-4 italic leading-tight max-w-3xl mx-auto">"Nossa prioridade é garantir que você receba exatamente o que conquistou."</p>
+        <div className="text-center mb-10 md:mb-12 animate-in fade-in duration-700">
+          <h1 className="text-3xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6 tracking-tight leading-tight italic">
+            Contestação de <span className="text-blue-600">Pagamentos</span>
+          </h1>
+          <p className="text-slate-500 font-medium text-base md:text-xl max-w-2xl mx-auto leading-relaxed">
+            Portal oficial para Zubaleros reportarem divergências em bônus, metas ou itens não pagos de forma rápida e segura.
+          </p>
         </div>
 
-        {state?.success ? <SuccessView /> : (
+        {state?.success ? (
+          <SuccessView />
+        ) : (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden">
-              <h3 className="text-xl font-black mb-5 flex items-center gap-2 italic uppercase tracking-tight"><Info size={24} /> Diretrizes Importantes</h3>
+            {/* CARD DE REGRAS E DIRETRIZES */}
+            <div className="bg-blue-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
+              <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110">
+                <Info size={160} />
+              </div>
+              <h3 className="text-lg md:text-xl font-black mb-4 flex items-center gap-2 italic uppercase tracking-tight">
+                <Info size={24} /> Diretrizes Importantes
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="flex gap-4"><Clock size={22} /><p className="text-base font-semibold">O prazo mínimo é de <span className="underline font-black">3 dias úteis</span> após a tarefa.</p></div>
-                <div className="flex gap-4"><CopyX size={22} /><p className="text-base font-semibold">Protocolos duplicados são <span className="font-black text-blue-100">negados automaticamente</span>.</p></div>
+                <div className="flex gap-3">
+                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><Clock size={20} /></div>
+                  <p className="text-sm md:text-base font-semibold leading-snug">
+                    O prazo mínimo para contestação é de <span className="underline decoration-blue-300 underline-offset-4">3 dias úteis</span> após a realização da tarefa, tempo necessário para o processamento bancário dos bônus.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><CopyX size={20} /></div>
+                  <p className="text-sm md:text-base font-semibold leading-snug">
+                    Protocolos de contestações anteriores não podem ser reutilizados. Solicitações duplicadas serão <span className="text-blue-100 font-black">negadas automaticamente</span> pelo sistema.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
-              <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-7 md:p-14 space-y-12">
-                <section className="space-y-7">
-                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados para localização do seu perfil" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div ref={fieldRefs.protocolo}>
-                      <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" placeholder="Mínimo 12 dígitos" type="text" inputMode="numeric" autoComplete="off" error={fieldErrors.protocolo} required />
+            <form action={handleSubmit} className="space-y-6 md:space-y-8">
+              <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden">
+                <div className="p-6 md:p-14 space-y-8 md:space-y-12">
+                  
+                  <section className="space-y-6 md:space-y-8">
+                    <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados básicos para localizarmos seu perfil" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                      <div className="space-y-1">
+                        <InputField 
+                            label="NÚMERO DO PROTOCOLO" 
+                            name="protocolo" 
+                            placeholder="Mínimo 12 dígitos" 
+                            type="text"
+                            inputMode="numeric"
+                            required 
+                        />
+                        <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Proibido duplicar protocolos anteriores</p>
+                      </div>
+                      <InputField label="NOME COMPLETO" name="nome" placeholder="Conforme documento" required />
+                      <div className="space-y-1">
+                        <InputField label="TELEFONE DE CADASTRO (COM DDD)" name="telefone" value={phone} onChange={handlePhoneChange} placeholder="+55 (DDD) 99999-9999" required />
+                        <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">
+                          * Telefone incorreto impede a identificação no sistema e o seguimento da contestação
+                        </p>
+                      </div>
+                      <InputField label="E-MAIL DE CADASTRO" name="email" type="email" placeholder="exemplo@zubale.com" required />
                     </div>
-                    <div ref={fieldRefs.nome}>
-                      <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => {setNome(e.target.value); localStorage.setItem("zubale_nome", e.target.value)}} error={fieldErrors.nome} required />
-                    </div>
-                    <div ref={fieldRefs.telefone}>
-                      <InputField label="TELEFONE (DDD + NÚMERO)" name="telefone" value={phone} onChange={handlePhoneChange} error={fieldErrors.telefone} inputMode="numeric" required />
-                      <p className="text-[11px] font-bold text-slate-500 italic mt-2">* Identificação impossível se o telefone estiver incorreto.</p>
-                    </div>
-                    <div ref={fieldRefs.email}>
-                      <InputField label="E-MAIL DE CADASTRO" name="email" type="email" value={email} onChange={(e:any) => {setEmail(e.target.value); localStorage.setItem("zubale_email", e.target.value)}} error={fieldErrors.email} required />
-                    </div>
-                  </div>
-                </section>
+                  </section>
 
-                <section className="space-y-7 pt-9 border-t border-slate-50">
-                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno da divergência" />
-                  <div className="space-y-8">
-                    <div ref={fieldRefs.tipoSolicitacao}>
-                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" error={fieldErrors.tipoSolicitacao}>
-                        <select name="tipoSolicitacao" value={bonusSelected} className="custom-select" onChange={(e) => {setBonusSelected(e.target.value); localStorage.setItem("temp_bonus", e.target.value)}} required>
+                  <section className="space-y-6 md:space-y-8 pt-8 border-t border-slate-50">
+                    <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
+                    <div className="space-y-6 md:space-y-8">
+                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={18}/>}>
+                        <select name="tipoSolicitacao" required className="custom-select" onChange={(e) => setBonusSelected(e.target.value)}>
                           <option value="">Selecione o tipo de bônus...</option>
                           {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
                         </select>
                       </FieldWrapper>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div ref={fieldRefs.data_contestacao}>
-                        <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" value={dataContestacao} onChange={(e:any) => {setDataContestacao(e.target.value); localStorage.setItem("temp_data", e.target.value)}} error={fieldErrors.data_contestacao} required />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                        <div className="space-y-1">
+                          <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" required />
+                          <p className="text-[10px] font-bold text-slate-400 italic px-2 uppercase tracking-tighter">* Respeite o prazo de 3 dias úteis</p>
+                        </div>
+                        <FieldWrapper label="TURNO ATUADO" icon={<Hash size={18}/>}>
+                          <select name="turno" required className="custom-select">
+                            <option value="">Selecione o turno...</option>
+                            <option value="Manhã">Manhã</option>
+                            <option value="Tarde">Tarde</option>
+                            <option value="Noite">Noite</option>
+                            <option value="Integral">Integral</option>
+                          </select>
+                        </FieldWrapper>
                       </div>
-                      <FieldWrapper label="TURNO ATUADO">
-                        <select name="turno" value={turno} className="custom-select" onChange={(e) => {setTurno(e.target.value); localStorage.setItem("temp_turno", e.target.value)}} required>
-                          <option value="">Selecione...</option><option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option><option value="Integral">Integral</option>
-                        </select>
-                      </FieldWrapper>
-                    </div>
 
-                    <div ref={fieldRefs.loja}>
-                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" error={fieldErrors.loja}>
+                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" icon={<Search size={18}/>}>
                         <div className="relative" ref={dropdownRef}>
-                          <div className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`} onClick={() => !isLoadingStores && setIsDropdownOpen(true)}>
-                            <input type="text" className="w-full p-5 bg-transparent font-bold outline-none uppercase text-base md:text-lg" value={storeSearch} onChange={(e) => { setStoreSearch(e.target.value); setIsDropdownOpen(true); }} autoComplete="off" />
-                            <ChevronDown className={`mr-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                          <div 
+                            className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`}
+                            onClick={() => !isLoadingStores && setIsDropdownOpen(true)}
+                          >
+                            <input 
+                              type="text"
+                              placeholder={isLoadingStores ? "Carregando..." : "BUSCAR LOJA..."}
+                              className="w-full p-4 bg-transparent font-bold text-slate-900 outline-none uppercase placeholder:text-slate-300 placeholder:font-medium text-sm md:text-base"
+                              value={storeSearch}
+                              onChange={(e) => {
+                                setStoreSearch(e.target.value);
+                                setIsDropdownOpen(true);
+                              }}
+                              autoComplete="off"
+                              disabled={isLoadingStores}
+                            />
+                            <ChevronDown className={`mr-4 transition-transform text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} size={20} />
                           </div>
+
                           {isDropdownOpen && (
-                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-                              <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                                {storesDatabase.filter(s => s.toLowerCase().includes(storeSearch.toLowerCase())).map((loja, i) => (
-                                  <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold text-slate-700 border-b last:border-none uppercase flex items-center gap-3" onClick={() => { setStoreSearch(loja); localStorage.setItem("temp_store", loja); setIsDropdownOpen(false); setFieldErrors(prev => ({...prev, loja: ""})); }}>
-                                    <Building2 size={18} className="text-slate-300" /> {loja}
+                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                              <div className="max-h-[250px] md:max-h-[300px] overflow-y-auto custom-scrollbar">
+                                {filteredStores.length > 0 ? (
+                                  filteredStores.map((loja, i) => (
+                                    <div 
+                                      key={i}
+                                      className="px-5 py-3.5 hover:bg-blue-50 cursor-pointer text-xs md:text-sm font-bold text-slate-700 border-b border-slate-50 last:border-none transition-colors flex items-center gap-3 uppercase"
+                                      onClick={() => {
+                                        setStoreSearch(loja);
+                                        setIsDropdownOpen(false);
+                                        setLocalError(null);
+                                      }}
+                                    >
+                                      <Building2 size={16} className="text-slate-300" />
+                                      {loja}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="p-8 text-center">
+                                    <p className="text-sm font-bold text-slate-400">Nenhuma loja encontrada.</p>
                                   </div>
-                                ))}
+                                )}
                               </div>
                             </div>
                           )}
                         </div>
                       </FieldWrapper>
                     </div>
-                  </div>
-                </section>
-
-                {bonusSelected && (
-                  <section className="space-y-7 pt-9 border-t border-slate-50 animate-in fade-in">
-                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas" />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {bonusSelected === "Indicação de Novo Zubalero" ? (
-                        <div className="md:col-span-2"><InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" required /></div>
-                      ) : (
-                        <>
-                          {bonusSelected === "SKU / Item" && <div className="md:col-span-2"><InputField label="CÓDIGO SKU" name="sku_codigo" required /></div>}
-                          <InputField label="VALOR RECEBIDO" name="valor_recebido" value={valorRecebido} onChange={(e:any) => {setValorRecebido(e.target.value); localStorage.setItem("temp_v_rec", e.target.value)}} type="number" step="1" required />
-                          <InputField label="VALOR ANUNCIADO" name="valor_anunciado" value={valorAnunciado} onChange={(e:any) => {setValorAnunciado(e.target.value); localStorage.setItem("temp_v_anu", e.target.value)}} type="number" step="1" required />
-                        </>
-                      )}
-                    </div>
-                    <FieldWrapper label="EXPLIQUE SEU CASO (OPCIONAL)"><textarea name="detalhamento" value={detalhamento} onChange={(e) => {setDetalhamento(e.target.value); localStorage.setItem("temp_det", e.target.value)}} rows={4} className="custom-input py-5" /></FieldWrapper>
-                    <FieldWrapper label="EVIDÊNCIAS (OPCIONAL)">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {selectedFiles.map((f, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-                            <span className="text-sm font-bold text-blue-700 truncate">{f.name}</span>
-                            <button type="button" onClick={() => setSelectedFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-full"><X size={18} /></button>
-                          </div>
-                        ))}
-                        {selectedFiles.length < 5 && (
-                          <label className="flex items-center justify-center gap-3 p-5 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30">
-                            <input type="file" multiple accept="image/*" onChange={(e) => e.target.files && setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)].slice(0, 5))} className="hidden" />
-                            <Plus size={22} /><span className="text-sm font-black uppercase">Anexar Print</span>
-                          </label>
-                        )}
-                      </div>
-                    </FieldWrapper>
                   </section>
+
+                  {bonusSelected && (
+                    <section className="space-y-6 md:space-y-8 pt-8 border-t border-slate-50">
+                      <SectionHeader number="03" title="DETALHES FINANCEIROS" subtitle="Forneça valores e evidências do caso" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                        <InputField label="VALOR RECEBIDO (R$)" name="valor_recebido" type="number" step="1" placeholder="0" required />
+                        <InputField label="VALOR ANUNCIADO (R$)" name="valor_anunciado" type="number" step="1" placeholder="0" required />
+                      </div>
+                      <FieldWrapper label="EXPLIQUE SEU CASO" icon={<FileText size={18}/>}>
+                        <textarea name="detalhamento" required rows={4} className="custom-input resize-none py-4" placeholder="Descreva o ocorrido..." />
+                      </FieldWrapper>
+
+                      <FieldWrapper label={`EVIDÊNCIAS (OPCIONAL - MÁX 5)`} icon={<Paperclip size={18}/>}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 md:p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                              <span className="text-[10px] md:text-xs font-bold text-blue-700 truncate max-w-[150px]">{file.name}</span>
+                              <button type="button" onClick={() => removeFile(index)} className="text-blue-600 hover:bg-blue-100 p-1 rounded-full"><X size={14} /></button>
+                            </div>
+                          ))}
+                          {selectedFiles.length < 5 && (
+                            <label className="flex items-center justify-center gap-3 p-3 md:p-4 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all">
+                              <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" ref={fileInputRef} />
+                              <Plus size={18} className="text-slate-400" />
+                              <span className="text-[10px] md:text-xs font-black text-slate-500 uppercase">Anexar Print</span>
+                            </label>
+                          )}
+                        </div>
+                      </FieldWrapper>
+                    </section>
+                  )}
+                </div>
+
+                {(state?.error || localError) && (
+                  <div className="mx-6 md:mx-8 mb-6 md:mb-8 p-4 md:p-5 bg-red-50 border border-red-100 rounded-2xl md:rounded-3xl flex items-center gap-3 md:gap-4 text-red-700 text-xs md:text-sm font-bold">
+                    <AlertCircle size={20} className="flex-shrink-0" />
+                    {localError || state?.error}
+                  </div>
                 )}
-              </div>
-              <div className="p-7 md:p-12 bg-slate-50/50 border-t rounded-[2.5rem]">
-                <button type="submit" disabled={isPending || !bonusSelected} className="w-full bg-blue-600 text-white font-black py-6 rounded-[2rem] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-4 text-xl md:text-2xl shadow-xl">
-                  {isPending ? <Loader2 className="animate-spin" /> : "Confirmar e Enviar Contestação"}
-                </button>
+
+                <div className="p-6 md:p-10 bg-slate-50/50 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={isPending || !bonusSelected}
+                    className="w-full bg-blue-600 text-white font-black py-4 md:py-6 rounded-[1.25rem] md:rounded-[2rem] hover:bg-blue-700 transition-all active:scale-[0.98] disabled:opacity-40 flex justify-center items-center gap-3 md:gap-4 text-lg md:text-xl shadow-lg shadow-blue-100 uppercase"
+                  >
+                    {isPending ? <Loader2 className="animate-spin" size={24} /> : "Enviar Contestação"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         )}
-        <footer className="mt-12 text-center text-slate-400 text-xs md:text-sm font-medium italic">© 2026 Zubale Brasil · Todos os direitos reservados</footer>
+
+        <footer className="mt-8 md:mt-12 text-center text-slate-400 text-[10px] md:text-sm font-medium italic">
+          © {new Date().getFullYear()} Zubale Brasil · Todos os direitos reservados
+        </footer>
       </main>
 
       <style jsx global>{`
-        .custom-input, .custom-select { width: 100%; border: 2px solid #f1f5f9; padding: 1.1rem 1.4rem; border-radius: 1.25rem; background: #f8fafc; font-weight: 700; color: #0f172a; transition: all 0.25s ease; font-size: 1.25rem; min-height: 4.2rem; appearance: none; }
-        .custom-input:focus, .custom-select:focus { outline: none; border-color: #2563eb; background: white; box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08); transform: translateY(-1px); }
+        .custom-input, .custom-select { 
+          width: 100%; 
+          border: 2px solid #f1f5f9; 
+          padding: 1rem 1.25rem; 
+          border-radius: 1.25rem; 
+          background: #f8fafc; 
+          font-weight: 700; 
+          color: #0f172a; 
+          transition: all 0.25s ease; 
+          font-size: 1.1rem; 
+          min-height: 3.5rem; 
+          appearance: none; 
+        }
+        @media (max-width: 768px) {
+          .custom-input, .custom-select {
+            padding: 0.75rem 1rem;
+            font-size: 1rem; 
+          }
+        }
+        .custom-input:focus, .custom-select:focus { 
+          outline: none; 
+          border-color: #2563eb; 
+          background: white; 
+          box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.08); 
+          transform: translateY(-1px); 
+        }
+        .custom-input::placeholder { color: #94a3b8; font-weight: 500; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
       `}</style>
     </div>
   );
 }
 
-function SectionHeader({ number, title, subtitle }: any) {
+function SectionHeader({ number, title, subtitle }: { number: string, title: string, subtitle: string }) {
   return (
-    <div className="flex items-start gap-4">
-      <span className="bg-slate-900 text-white text-[12px] font-black w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-xl shadow-md flex-shrink-0 mt-1">{number}</span>
-      <div><h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2><p className="text-xs md:text-base font-medium text-slate-400 mt-1.5">{subtitle}</p></div>
+    <div className="flex items-start gap-3 md:gap-4">
+      <span className="bg-slate-900 text-white text-[10px] md:text-[11px] font-black w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-lg md:rounded-xl shadow-md flex-shrink-0 mt-1">{number}</span>
+      <div>
+        <h2 className="text-base md:text-xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2>
+        <p className="text-[10px] md:text-sm font-medium text-slate-400 mt-1">{subtitle}</p>
+      </div>
     </div>
   );
 }
 
-function FieldWrapper({ label, error, children }: any) {
+function FieldWrapper({ label, icon, children }: { label: string, icon: any, children: React.ReactNode }) {
   return (
-    <div className="space-y-3 relative">
-      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-bold text-sm mb-2 animate-in slide-in-from-top-2"><AlertCircle size={18} /> {error}</div>}
-      <label className="flex items-center gap-2 text-[11px] md:text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+    <div className="space-y-2 md:space-y-3">
+      <label className="flex items-center gap-2 text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{icon} {label}</label>
       {children}
     </div>
   );
 }
 
-function InputField({ label, error, ...props }: any) {
-  return <FieldWrapper label={label} error={error}><input className="custom-input" {...props} /></FieldWrapper>;
+function InputField({ label, icon, ...props }: any) {
+  return (
+    <FieldWrapper label={label} icon={icon}>
+      <input className="custom-input" {...props} />
+    </FieldWrapper>
+  );
 }
 
 function SuccessView() {
   return (
-    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in">
-      <CheckCircle2 size={70} className="mx-auto text-emerald-500 mb-10" />
-      <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 italic">Solicitação Recebida!</h2>
-      <div className="text-slate-600 font-medium text-lg md:text-xl mb-12 max-w-xl mx-auto leading-relaxed space-y-6">
-        <p>Reporte registrado com sucesso. Analisaremos e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
-        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm md:text-base text-left space-y-3 shadow-sm">
-          <p className="font-black text-slate-800 uppercase tracking-tight">Regras de Revisão:</p>
-          <ul className="list-disc list-inside space-y-2 text-slate-500">
-            <li>Pedidos feitos antes de 3 dias úteis da tarefa serão negados.</li>
+    <div className="bg-white p-10 md:p-20 rounded-[2rem] md:rounded-[3.5rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
+      <div className="w-20 h-20 md:w-28 md:h-28 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 md:mb-10 shadow-inner">
+        <CheckCircle2 size={40} className="md:w-14 md:h-14" />
+      </div>
+      <h2 className="text-2xl md:text-4xl font-black text-slate-900 mb-4 italic">Solicitação Recebida!</h2>
+      <div className="text-slate-500 font-medium text-sm md:text-lg mb-8 md:mb-12 max-w-lg mx-auto leading-relaxed space-y-4">
+        <p>Seu reporte foi registrado com sucesso. Analisaremos o caso e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs md:text-sm text-left space-y-2">
+          <p className="font-bold text-slate-800 uppercase tracking-tighter">Lembre-se:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Solicitações abertas antes de 3 dias úteis da tarefa serão negadas automaticamente.</li>
             <li>O uso de protocolos duplicados anula a revisão.</li>
-            <li>Verifique seu e-mail cadastrado regularmente.</li>
+            <li>A identificação do Zubalero depende de um número de telefone válido.</li>
           </ul>
         </div>
       </div>
-      <button onClick={() => window.location.reload()} className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-sm md:text-lg tracking-widest shadow-xl">Novo Reporte</button>
+      <button onClick={() => window.location.reload()} className="px-10 md:px-12 py-4 md:py-5 bg-slate-900 text-white rounded-xl md:rounded-2xl font-black uppercase text-xs md:text-sm tracking-widest">Novo Reporte</button>
     </div>
   );
 }
