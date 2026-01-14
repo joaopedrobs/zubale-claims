@@ -16,14 +16,10 @@ const SP_HOLIDAYS = [
   "2026-11-15", "2026-11-20", "2026-12-25"
 ];
 
-const BONUS_TYPES = [
-  "Bônus Adicional 2 Turnos", "Bônus Data Comemorativa", "Bônus de Domingo",
-  "Bônus de Fim de Ano", "Bônus de Treinamento", "Bônus Especial",
-  "Bônus Ofertado por WhatsApp ou Push App", "Conectividade", "Hora Certa",
-  "Indicação de Novo Zubalero", "Meta de Produtividade", "SKU / Item"
-];
+const BONUS_TYPES = ["Bônus Adicional 2 Turnos", "Bônus Data Comemorativa", "Bônus de Domingo", "Bônus de Fim de Ano", "Bônus de Treinamento", "Bônus Especial", "Bônus Ofertado por WhatsApp ou Push App", "Conectividade", "Hora Certa", "Indicação de Novo Zubalero", "Meta de Produtividade", "SKU / Item"];
 
 export default function ZubalePortal() {
+  const [isMounted, setIsMounted] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("+55");
@@ -55,7 +51,8 @@ export default function ZubalePortal() {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(submitContestation, null);
 
   useEffect(() => {
-    // Carregar Caches (Apenas no Cliente)
+    setIsMounted(true);
+    // Carregar Caches com segurança
     setNome(localStorage.getItem("zubale_nome") || "");
     setEmail(localStorage.getItem("zubale_email") || "");
     setPhone(localStorage.getItem("zubale_phone") || "+55");
@@ -99,11 +96,14 @@ export default function ZubalePortal() {
     localStorage.setItem("zubale_phone", finalPhone);
   };
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const errors: Record<string, string> = {};
     const protocolo = formData.get("protocolo")?.toString() || "";
     const telefoneLimpo = phone.replace(/\D/g, "");
 
+    // Validações Manuais para garantir o avanço
     if (protocolo.length < 12) errors.protocolo = "O protocolo deve ter pelo menos 12 dígitos.";
     if (!nome) errors.nome = "Informe seu nome completo.";
     if (telefoneLimpo.length !== 13) errors.telefone = "DDD e número completos necessários (11 dígitos).";
@@ -142,6 +142,8 @@ export default function ZubalePortal() {
     }
   }, [state]);
 
+  if (!isMounted) return null; // Evita erro de hidratação no Vercel
+
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans text-slate-900">
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
@@ -161,8 +163,7 @@ export default function ZubalePortal() {
 
         {state?.success ? <SuccessView /> : (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
-              <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110"><Info size={160} /></div>
+            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden">
               <h3 className="text-xl font-black mb-5 flex items-center gap-2 italic uppercase tracking-tight"><Info size={24} /> Diretrizes Importantes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                 <div className="flex gap-4"><Clock size={22} /><p className="text-base font-semibold">O prazo mínimo é de <span className="underline font-black">3 dias úteis</span> após a tarefa.</p></div>
@@ -170,14 +171,13 @@ export default function ZubalePortal() {
               </div>
             </div>
 
-            <form action={handleSubmit} className="space-y-6 md:space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
               <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-7 md:p-14 space-y-12">
                 <section className="space-y-7">
-                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados fixos para agilizar seus próximos reportes" />
+                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados para localização do seu perfil" />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div ref={fieldRefs.protocolo}>
                       <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" placeholder="Mínimo 12 dígitos" type="text" inputMode="numeric" autoComplete="off" error={fieldErrors.protocolo} required />
-                      <p className="text-[11px] font-bold text-slate-400 italic mt-2 uppercase tracking-tighter">* Proibido duplicar protocolos</p>
                     </div>
                     <div ref={fieldRefs.nome}>
                       <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => {setNome(e.target.value); localStorage.setItem("zubale_nome", e.target.value)}} error={fieldErrors.nome} required />
@@ -193,7 +193,7 @@ export default function ZubalePortal() {
                 </section>
 
                 <section className="space-y-7 pt-9 border-t border-slate-50">
-                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
+                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno da divergência" />
                   <div className="space-y-8">
                     <div ref={fieldRefs.tipoSolicitacao}>
                       <FieldWrapper label="O QUE DESEJA CONTESTAR?" error={fieldErrors.tipoSolicitacao}>
@@ -210,7 +210,7 @@ export default function ZubalePortal() {
                       </div>
                       <FieldWrapper label="TURNO ATUADO">
                         <select name="turno" value={turno} className="custom-select" onChange={(e) => {setTurno(e.target.value); localStorage.setItem("temp_turno", e.target.value)}} required>
-                          <option value="">Selecione o turno...</option><option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option><option value="Integral">Integral</option>
+                          <option value="">Selecione...</option><option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option><option value="Integral">Integral</option>
                         </select>
                       </FieldWrapper>
                     </div>
@@ -241,7 +241,7 @@ export default function ZubalePortal() {
 
                 {bonusSelected && (
                   <section className="space-y-7 pt-9 border-t border-slate-50 animate-in fade-in">
-                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas para análise" />
+                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas" />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {bonusSelected === "Indicação de Novo Zubalero" ? (
                         <div className="md:col-span-2"><InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" required /></div>
@@ -253,7 +253,7 @@ export default function ZubalePortal() {
                         </>
                       )}
                     </div>
-                    <FieldWrapper label="EXPLIQUE SEU CASO (OPCIONAL)"><textarea name="detalhamento" value={detalhamento} onChange={(e) => {setDetalhamento(e.target.value); localStorage.setItem("temp_det", e.target.value)}} rows={4} className="custom-input resize-none py-5" /></FieldWrapper>
+                    <FieldWrapper label="EXPLIQUE SEU CASO (OPCIONAL)"><textarea name="detalhamento" value={detalhamento} onChange={(e) => {setDetalhamento(e.target.value); localStorage.setItem("temp_det", e.target.value)}} rows={4} className="custom-input py-5" /></FieldWrapper>
                     <FieldWrapper label="EVIDÊNCIAS (OPCIONAL)">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {selectedFiles.map((f, i) => (
@@ -286,7 +286,6 @@ export default function ZubalePortal() {
 
       <style jsx global>{`
         .custom-input, .custom-select { width: 100%; border: 2px solid #f1f5f9; padding: 1.1rem 1.4rem; border-radius: 1.25rem; background: #f8fafc; font-weight: 700; color: #0f172a; transition: all 0.25s ease; font-size: 1.25rem; min-height: 4.2rem; appearance: none; }
-        @media (max-width: 768px) { .custom-input, .custom-select { padding: 1.2rem; font-size: 1.15rem; min-height: 4rem; } }
         .custom-input:focus, .custom-select:focus { outline: none; border-color: #2563eb; background: white; box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08); transform: translateY(-1px); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
@@ -326,7 +325,7 @@ function SuccessView() {
       <div className="text-slate-600 font-medium text-lg md:text-xl mb-12 max-w-xl mx-auto leading-relaxed space-y-6">
         <p>Reporte registrado com sucesso. Analisaremos e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
         <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm md:text-base text-left space-y-3 shadow-sm">
-          <p className="font-black text-slate-800 uppercase tracking-tight">Próximos Passos:</p>
+          <p className="font-black text-slate-800 uppercase tracking-tight">Regras de Revisão:</p>
           <ul className="list-disc list-inside space-y-2 text-slate-500">
             <li>Pedidos feitos antes de 3 dias úteis da tarefa serão negados.</li>
             <li>O uso de protocolos duplicados anula a revisão.</li>
