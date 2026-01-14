@@ -8,6 +8,7 @@ import {
   AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, CopyX
 } from "lucide-react";
 
+// Lista de Feriados São Paulo 2025/2026
 const SP_HOLIDAYS = [
   "2025-01-01", "2025-01-25", "2025-03-03", "2025-03-04", "2025-04-18", "2025-04-21", 
   "2025-05-01", "2025-06-19", "2025-07-09", "2025-09-07", "2025-10-12", "2025-11-02", 
@@ -25,17 +26,20 @@ const BONUS_TYPES = [
 ];
 
 export default function ZubalePortal() {
-  const [bonusSelected, setBonusSelected] = useState("");
-  const [phone, setPhone] = useState("+55");
+  // Identidade (Permanente)
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [storeSearch, setStoreSearch] = useState("");
+  const [phone, setPhone] = useState("+55");
+
+  // Dados de Atuação (Temporários)
+  const [bonusSelected, setBonusSelected] = useState("");
   const [dataContestacao, setDataContestacao] = useState("");
   const [turno, setTurno] = useState("");
+  const [storeSearch, setStoreSearch] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [valorAnunciado, setValorAnunciado] = useState("");
   const [detalhamento, setDetalhamento] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
@@ -101,12 +105,12 @@ export default function ZubalePortal() {
     return date;
   };
 
-  // Trava o prefixo +55
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
     if (!val.startsWith("55")) val = "55" + val;
-    setPhone("+" + val.substring(0, 13)); 
-    localStorage.setItem("zubale_phone", "+" + val.substring(0, 13));
+    const finalPhone = "+" + val.substring(0, 13);
+    setPhone(finalPhone); 
+    localStorage.setItem("zubale_phone", finalPhone);
   };
 
   const handleSubmit = (formData: FormData) => {
@@ -119,13 +123,13 @@ export default function ZubalePortal() {
     if (!nome) errors.nome = "Informe seu nome completo.";
     if (telefoneLimpo.length !== 13) errors.telefone = "DDD e número completos necessários (11 dígitos).";
     if (!email) errors.email = "E-mail de cadastro obrigatório.";
-    if (!bonusSelected) errors.tipoSolicitacao = "Selecione o que deseja contestar.";
+    if (!bonusSelected) errors.tipoSolicitacao = "Selecione o tipo de bônus.";
     
     if (dataContestacao) {
       const taskDate = new Date(dataContestacao + "T00:00:00");
       const limitDate = calculateLimitDate();
       limitDate.setHours(0, 0, 0, 0);
-      if (taskDate > limitDate) errors.data_contestacao = "Contestação permitida apenas após 3 dias úteis da tarefa.";
+      if (taskDate > limitDate) errors.data_contestacao = "A contestação só pode ser aberta após 3 dias úteis da tarefa.";
     } else {
       errors.data_contestacao = "Informe a data da realização.";
     }
@@ -139,7 +143,7 @@ export default function ZubalePortal() {
       return;
     }
 
-    // Salvar Cache Permanente
+    // Salvar Identidade Permanente
     localStorage.setItem("zubale_nome", nome);
     localStorage.setItem("zubale_email", email);
 
@@ -150,7 +154,7 @@ export default function ZubalePortal() {
     formAction(formData);
   };
 
-  // Limpa temporários após sucesso
+  // Limpa temporários apenas em caso de SUCESSO
   useEffect(() => {
     if (state?.success) {
       const tempKeys = ["temp_bonus", "temp_data", "temp_turno", "temp_store", "temp_v_rec", "temp_v_anu", "temp_det"];
@@ -172,11 +176,14 @@ export default function ZubalePortal() {
       <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
         <div className="text-center mb-10 md:mb-12 animate-in fade-in duration-700">
           <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight leading-tight italic">Contestação de <span className="text-blue-600">Pagamentos</span></h1>
-          <p className="text-blue-500 font-bold text-lg md:text-2xl mb-4 italic leading-tight max-w-3xl mx-auto">"Queremos garantir que cada bônus conquistado chegue até você corretamente."</p>
-          <p className="text-slate-500 font-medium text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Portal oficial para reportar divergências de forma rápida e segura.</p>
+          <p className="text-blue-500 font-bold text-lg md:text-2xl mb-6 italic leading-tight max-w-3xl mx-auto">"Nossa prioridade é garantir que você receba exatamente o que conquistou."</p>
+          <p className="text-slate-500 font-medium text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Portal oficial para Zubaleros reportarem divergências com segurança e agilidade.</p>
         </div>
 
-        {state?.success ? <SuccessView /> : (
+        {/* LÓGICA DE EXIBIÇÃO DA TELA DE SUCESSO */}
+        {state?.success ? (
+          <SuccessView />
+        ) : (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
               <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110"><Info size={160} /></div>
@@ -191,11 +198,11 @@ export default function ZubalePortal() {
               <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-7 md:p-14 space-y-9 md:space-y-12">
                 
                 <section className="space-y-7 md:space-y-8">
-                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados para localizarmos seu perfil" />
+                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados fixos para agilizar seus próximos reportes" />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                     <div ref={fieldRefs.protocolo}>
                       <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" placeholder="Mínimo 12 dígitos" type="text" inputMode="numeric" autoComplete="off" error={fieldErrors.protocolo} required />
-                      <p className="text-[11px] font-bold text-slate-400 italic px-2 mt-2 uppercase">* Proibido duplicar protocolos anteriores</p>
+                      <p className="text-[11px] font-bold text-slate-400 italic px-2 mt-2 uppercase tracking-tighter">* Proibido duplicar protocolos</p>
                     </div>
                     <div ref={fieldRefs.nome}>
                       <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => {setNome(e.target.value); localStorage.setItem("zubale_nome", e.target.value)}} placeholder="Conforme documento" error={fieldErrors.nome} required />
@@ -211,7 +218,7 @@ export default function ZubalePortal() {
                 </section>
 
                 <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50">
-                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre a tarefa realizada" />
+                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Informações sobre o turno trabalhado" />
                   <div className="space-y-7 md:space-y-8">
                     <div ref={fieldRefs.tipoSolicitacao}>
                       <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={20}/>} error={fieldErrors.tipoSolicitacao}>
@@ -243,7 +250,7 @@ export default function ZubalePortal() {
                           </div>
                           {isDropdownOpen && (
                             <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-                              <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                              <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
                                 {storesDatabase.filter(s => s.toLowerCase().includes(storeSearch.toLowerCase())).map((loja, i) => (
                                   <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-none uppercase flex items-center gap-3" onClick={() => { setStoreSearch(loja); localStorage.setItem("temp_store", loja); setIsDropdownOpen(false); setFieldErrors(prev => ({...prev, loja: ""})); }}>
                                     <Building2 size={18} className="text-slate-300" /> {loja}
@@ -259,11 +266,11 @@ export default function ZubalePortal() {
                 </section>
 
                 {bonusSelected && (
-                  <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50 animate-in fade-in slide-in-from-top-4">
-                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas do caso" />
+                  <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e evidências para análise" />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                       {bonusSelected === "Indicação de Novo Zubalero" ? (
-                        <div className="md:col-span-2"><InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" icon={<Hash size={18}/>} placeholder="Código utilizado" required /></div>
+                        <div className="md:col-span-2"><InputField label="CÓDIGO DE INDICAÇÃO UTILIZADO" name="codigo_indicacao" icon={<Hash size={18}/>} placeholder="Digite o código" required /></div>
                       ) : (
                         <>
                           {bonusSelected === "SKU / Item" && <div className="md:col-span-2"><InputField label="CÓDIGO SKU" name="sku_codigo" icon={<Hash size={18}/>} required /></div>}
@@ -341,7 +348,7 @@ function InputField({ label, icon, error, ...props }: any) {
 
 function SuccessView() {
   return (
-    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in">
+    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
       <CheckCircle2 size={70} className="mx-auto text-emerald-500 mb-10" />
       <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 italic">Solicitação Recebida!</h2>
       <div className="text-slate-600 font-medium text-lg md:text-xl mb-12 max-w-xl mx-auto leading-relaxed space-y-6">
