@@ -4,11 +4,9 @@ import { useState, useActionState, useMemo, useEffect, useRef } from "react";
 import { submitContestation, type FormState } from "./actions";
 import { 
   CheckCircle2, Loader2, Search, Building2, 
-  Calendar, Phone, Mail, Hash, User, FileText, 
-  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, CopyX
+  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, CopyX, Hash, FileText
 } from "lucide-react";
 
-// Lista de Feriados São Paulo 2025/2026
 const SP_HOLIDAYS = [
   "2025-01-01", "2025-01-25", "2025-03-03", "2025-03-04", "2025-04-18", "2025-04-21", 
   "2025-05-01", "2025-06-19", "2025-07-09", "2025-09-07", "2025-10-12", "2025-11-02", 
@@ -26,23 +24,30 @@ const BONUS_TYPES = [
 ];
 
 export default function ZubalePortal() {
-  const [bonusSelected, setBonusSelected] = useState("");
-  const [phone, setPhone] = useState("+55");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [phone, setPhone] = useState("+55");
+  const [bonusSelected, setBonusSelected] = useState("");
+  const [dataContestacao, setDataContestacao] = useState("");
+  const [turno, setTurno] = useState("");
   const [storeSearch, setStoreSearch] = useState("");
+  const [valorRecebido, setValorRecebido] = useState("");
+  const [valorAnunciado, setValorAnunciado] = useState("");
+  const [detalhamento, setDetalhamento] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
   const fieldRefs: Record<string, any> = {
     protocolo: useRef<HTMLDivElement>(null),
+    nome: useRef<HTMLDivElement>(null),
     telefone: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    tipoSolicitacao: useRef<HTMLDivElement>(null),
     data_contestacao: useRef<HTMLDivElement>(null),
     loja: useRef<HTMLDivElement>(null),
   };
@@ -50,23 +55,22 @@ export default function ZubalePortal() {
   const [state, formAction, isPending] = useActionState<FormState, FormData>(submitContestation, null);
 
   useEffect(() => {
-    // Carregar Cache de Identidade
-    const savedNome = localStorage.getItem("zubale_nome");
-    const savedEmail = localStorage.getItem("zubale_email");
-    const savedPhone = localStorage.getItem("zubale_phone");
-    if (savedNome) setNome(savedNome);
-    if (savedEmail) setEmail(savedEmail);
-    if (savedPhone) setPhone(savedPhone);
+    // Carregar Caches (Apenas no Cliente para evitar erro em produção)
+    setNome(localStorage.getItem("zubale_nome") || "");
+    setEmail(localStorage.getItem("zubale_email") || "");
+    setPhone(localStorage.getItem("zubale_phone") || "+55");
+    setBonusSelected(localStorage.getItem("temp_bonus") || "");
+    setDataContestacao(localStorage.getItem("temp_data") || "");
+    setTurno(localStorage.getItem("temp_turno") || "");
+    setStoreSearch(localStorage.getItem("temp_store") || "");
+    setValorRecebido(localStorage.getItem("temp_v_rec") || "");
+    setValorAnunciado(localStorage.getItem("temp_v_anu") || "");
+    setDetalhamento(localStorage.getItem("temp_det") || "");
 
-    async function loadStores() {
-      try {
-        const response = await fetch("/api/stores");
-        const data = await response.json();
-        setStoresDatabase(Array.isArray(data) ? data : []);
-      } catch (err) { console.error("Erro ao carregar lojas"); } 
-      finally { setIsLoadingStores(false); }
-    }
-    loadStores();
+    fetch("/api/stores").then(res => res.json()).then(data => {
+      setStoresDatabase(data);
+      setIsLoadingStores(false);
+    });
 
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsDropdownOpen(false);
@@ -80,9 +84,9 @@ export default function ZubalePortal() {
     let businessDaysFound = 0;
     while (businessDaysFound < 3) {
       date.setDate(date.getDate() - 1);
-      const dayOfWeek = date.getDay();
-      const dateString = date.toISOString().split('T')[0];
-      if (dayOfWeek !== 0 && dayOfWeek !== 6 && !SP_HOLIDAYS.includes(dateString)) businessDaysFound++;
+      const day = date.getDay();
+      const str = date.toISOString().split('T')[0];
+      if (day !== 0 && day !== 6 && !SP_HOLIDAYS.includes(str)) businessDaysFound++;
     }
     return date;
   };
@@ -90,20 +94,27 @@ export default function ZubalePortal() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
     if (!val.startsWith("55")) val = "55" + val;
-    setPhone("+" + val.substring(0, 13)); 
+    const finalPhone = "+" + val.substring(0, 13);
+    setPhone(finalPhone); 
+    localStorage.setItem("zubale_phone", finalPhone);
   };
 
-  const handleSubmit = (formData: FormData) => {
+  // Lógica de Envio Robusta
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     const errors: Record<string, string> = {};
     const protocolo = formData.get("protocolo")?.toString() || "";
     const telefoneLimpo = phone.replace(/\D/g, "");
-    const dataTarefaStr = formData.get("data_contestacao")?.toString();
 
     if (protocolo.length < 12) errors.protocolo = "O protocolo deve ter pelo menos 12 dígitos.";
-    if (telefoneLimpo.length !== 13) errors.telefone = "Informe o telefone completo com DDD (11 dígitos).";
+    if (!nome) errors.nome = "Informe seu nome completo.";
+    if (telefoneLimpo.length !== 13) errors.telefone = "DDD e número completos necessários (11 dígitos).";
+    if (!email) errors.email = "E-mail de cadastro obrigatório.";
+    if (!bonusSelected) errors.tipoSolicitacao = "Selecione o tipo de bônus.";
     
-    if (dataTarefaStr) {
-      const taskDate = new Date(dataTarefaStr + "T00:00:00");
+    if (dataContestacao) {
+      const taskDate = new Date(dataContestacao + "T00:00:00");
       const limitDate = calculateLimitDate();
       limitDate.setHours(0, 0, 0, 0);
       if (taskDate > limitDate) errors.data_contestacao = "A contestação só pode ser aberta após 3 dias úteis da tarefa.";
@@ -113,21 +124,27 @@ export default function ZubalePortal() {
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      const firstErrorField = Object.keys(errors)[0];
-      fieldRefs[firstErrorField]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const firstErrorKey = Object.keys(errors)[0];
+      fieldRefs[firstErrorKey]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     localStorage.setItem("zubale_nome", nome);
     localStorage.setItem("zubale_email", email);
-    localStorage.setItem("zubale_phone", phone);
-
     setFieldErrors({});
     formData.set("loja", storeSearch);
-    formData.delete("evidencias_files");
     selectedFiles.forEach(file => formData.append("evidencias_files", file));
+    
+    // Dispara a action do servidor
     formAction(formData);
   };
+
+  useEffect(() => {
+    if (state?.success) {
+      const tempKeys = ["temp_bonus", "temp_data", "temp_turno", "temp_store", "temp_v_rec", "temp_v_anu", "temp_det"];
+      tempKeys.forEach(k => localStorage.removeItem(k));
+    }
+  }, [state]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans text-slate-900">
@@ -141,83 +158,78 @@ export default function ZubalePortal() {
       </nav>
 
       <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
-        <div className="text-center mb-10 md:mb-12 animate-in fade-in duration-700">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 md:mb-6 tracking-tight leading-tight italic">
-            Contestação de <span className="text-blue-600">Pagamentos</span>
-          </h1>
-          {/* FRASE ADICIONADA AQUI */}
-          <p className="text-blue-500/80 font-bold text-lg md:text-2xl mb-4 italic leading-tight max-w-3xl mx-auto">
-            "Transparência e respeito ao seu trabalho: nossa prioridade é garantir que você receba exatamente o que conquistou."
-          </p>
-          <p className="text-slate-500 font-medium text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Portal oficial para Zubaleros reportarem divergências em bônus, metas ou itens não pagos de forma rápida e segura.
-          </p>
+        <div className="text-center mb-10 md:mb-12">
+          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight leading-tight italic">Contestação de <span className="text-blue-600">Pagamentos</span></h1>
+          <p className="text-blue-500 font-bold text-lg md:text-2xl mb-4 italic leading-tight max-w-3xl mx-auto">"Transparência e respeito ao seu trabalho: nossa prioridade é garantir que você receba exatamente o que conquistou."</p>
         </div>
 
         {state?.success ? <SuccessView /> : (
           <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
-              <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110"><Info size={160} /></div>
+            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden">
               <h3 className="text-xl font-black mb-5 flex items-center gap-2 italic uppercase tracking-tight"><Info size={24} /> Diretrizes Importantes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="flex gap-4"><div className="bg-blue-400/30 p-2 rounded-xl h-fit"><Clock size={22} /></div><p className="text-base font-semibold">O prazo mínimo para contestação é de <span className="underline decoration-blue-300 underline-offset-4 font-black">3 dias úteis</span> após a tarefa.</p></div>
-                <div className="flex gap-4"><div className="bg-blue-400/30 p-2 rounded-xl h-fit"><CopyX size={22} /></div><p className="text-base font-semibold">Protocolos duplicados ou reutilizados serão <span className="font-black text-blue-100">negados automaticamente</span>.</p></div>
+                <div className="flex gap-4"><Clock size={22} /><p className="text-base font-semibold">O prazo mínimo é de <span className="underline font-black">3 dias úteis</span> após a tarefa.</p></div>
+                <div className="flex gap-4"><CopyX size={22} /><p className="text-base font-semibold">Protocolos duplicados são <span className="font-black text-blue-100">negados automaticamente</span>.</p></div>
               </div>
             </div>
 
-            <form action={handleSubmit} className="space-y-6 md:space-y-8">
-              <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden p-7 md:p-14 space-y-9 md:space-y-12">
-                
-                <section className="space-y-7 md:space-y-8">
-                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados básicos para localizarmos seu perfil" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
+              <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-7 md:p-14 space-y-12">
+                <section className="space-y-7">
+                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados fixos para agilizar seus próximos reportes" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div ref={fieldRefs.protocolo}>
                       <InputField label="NÚMERO DO PROTOCOLO" name="protocolo" placeholder="Mínimo 12 dígitos" type="text" inputMode="numeric" autoComplete="off" error={fieldErrors.protocolo} required />
-                      <p className="text-[11px] font-bold text-slate-400 italic px-2 mt-2 uppercase tracking-tighter">* Proibido duplicar protocolos anteriores</p>
+                      <p className="text-[11px] font-bold text-slate-400 italic mt-2 uppercase tracking-tighter">* Proibido duplicar protocolos</p>
                     </div>
-                    <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => setNome(e.target.value)} placeholder="Conforme documento" required />
+                    <div ref={fieldRefs.nome}>
+                      <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => {setNome(e.target.value); localStorage.setItem("zubale_nome", e.target.value)}} error={fieldErrors.nome} required />
+                    </div>
                     <div ref={fieldRefs.telefone}>
                       <InputField label="TELEFONE (DDD + NÚMERO)" name="telefone" value={phone} onChange={handlePhoneChange} error={fieldErrors.telefone} inputMode="numeric" required />
-                      <p className="text-[11px] font-bold text-slate-500 italic px-2 mt-2 leading-tight">* Identificação impossível se o telefone estiver incorreto.</p>
+                      <p className="text-[11px] font-bold text-slate-500 italic mt-2">* Identificação impossível se o telefone estiver incorreto.</p>
                     </div>
-                    <InputField label="E-MAIL DE CADASTRO" name="email" type="email" value={email} onChange={(e:any) => setEmail(e.target.value)} placeholder="exemplo@zubale.com" required />
+                    <div ref={fieldRefs.email}>
+                      <InputField label="E-MAIL DE CADASTRO" name="email" type="email" value={email} onChange={(e:any) => {setEmail(e.target.value); localStorage.setItem("zubale_email", e.target.value)}} error={fieldErrors.email} required />
+                    </div>
                   </div>
                 </section>
 
-                <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50">
+                <section className="space-y-7 pt-9 border-t border-slate-50">
                   <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
-                  <div className="space-y-7 md:space-y-8">
-                    <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={20}/>}>
-                      <select name="tipoSolicitacao" required className="custom-select" onChange={(e) => setBonusSelected(e.target.value)}>
-                        <option value="">Selecione o tipo de bônus...</option>
-                        {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                    </FieldWrapper>
+                  <div className="space-y-8">
+                    <div ref={fieldRefs.tipoSolicitacao}>
+                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" error={fieldErrors.tipoSolicitacao}>
+                        <select name="tipoSolicitacao" value={bonusSelected} className="custom-select" onChange={(e) => {setBonusSelected(e.target.value); localStorage.setItem("temp_bonus", e.target.value)}} required>
+                          <option value="">Selecione o tipo de bônus...</option>
+                          {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </FieldWrapper>
+                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div ref={fieldRefs.data_contestacao}>
-                        <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" error={fieldErrors.data_contestacao} required />
-                        <p className="text-[11px] font-bold text-slate-400 italic px-2 mt-2 uppercase tracking-tighter">* Respeite o prazo de 3 dias úteis (SP)</p>
+                        <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" value={dataContestacao} onChange={(e:any) => {setDataContestacao(e.target.value); localStorage.setItem("temp_data", e.target.value)}} error={fieldErrors.data_contestacao} required />
                       </div>
-                      <FieldWrapper label="TURNO ATUADO" icon={<Hash size={20}/>}>
-                        <select name="turno" required className="custom-select">
+                      <FieldWrapper label="TURNO ATUADO">
+                        <select name="turno" value={turno} className="custom-select" onChange={(e) => {setTurno(e.target.value); localStorage.setItem("temp_turno", e.target.value)}} required>
                           <option value="">Selecione o turno...</option><option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option><option value="Integral">Integral</option>
                         </select>
                       </FieldWrapper>
                     </div>
 
                     <div ref={fieldRefs.loja}>
-                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" icon={<Search size={20}/>} error={fieldErrors.loja}>
+                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" error={fieldErrors.loja}>
                         <div className="relative" ref={dropdownRef}>
                           <div className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`} onClick={() => !isLoadingStores && setIsDropdownOpen(true)}>
-                            <input type="text" placeholder="DIGITE O NOME EXATO DA LOJA..." className="w-full p-5 bg-transparent font-bold text-slate-900 outline-none uppercase text-base md:text-lg" value={storeSearch} onChange={(e) => { setStoreSearch(e.target.value); setIsDropdownOpen(true); }} autoComplete="off" />
-                            <ChevronDown className={`mr-4 transition-transform text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} size={22} />
+                            <input type="text" className="w-full p-5 bg-transparent font-bold outline-none uppercase text-base md:text-lg" value={storeSearch} onChange={(e) => { setStoreSearch(e.target.value); setIsDropdownOpen(true); }} autoComplete="off" />
+                            <ChevronDown className={`mr-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                           </div>
                           {isDropdownOpen && (
-                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                              <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
+                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                              <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                                 {storesDatabase.filter(s => s.toLowerCase().includes(storeSearch.toLowerCase())).map((loja, i) => (
-                                  <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-none transition-colors flex items-center gap-3 uppercase" onClick={() => { setStoreSearch(loja); setIsDropdownOpen(false); setFieldErrors(prev => ({...prev, loja: ""})); }}>
+                                  <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold text-slate-700 border-b last:border-none uppercase flex items-center gap-3" onClick={() => { setStoreSearch(loja); localStorage.setItem("temp_store", loja); setIsDropdownOpen(false); setFieldErrors(prev => ({...prev, loja: ""})); }}>
                                     <Building2 size={18} className="text-slate-300" /> {loja}
                                   </div>
                                 ))}
@@ -231,43 +243,32 @@ export default function ZubalePortal() {
                 </section>
 
                 {bonusSelected && (
-                  <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Forneça valores e evidências do caso" />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                  <section className="space-y-7 pt-9 border-t border-slate-50 animate-in fade-in">
+                    <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas para análise" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {bonusSelected === "Indicação de Novo Zubalero" ? (
-                        <div className="md:col-span-2">
-                          <InputField label="CÓDIGO DE INDICAÇÃO UTILIZADO" name="codigo_indicacao" icon={<Hash size={18}/>} placeholder="Digite o código" required />
-                        </div>
+                        <div className="md:col-span-2"><InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" required /></div>
                       ) : (
                         <>
-                          {bonusSelected === "SKU / Item" && (
-                            <div className="md:col-span-2">
-                              <InputField label="CÓDIGO DO ITEM / SKU" name="sku_codigo" icon={<Hash size={18}/>} placeholder="Digite o código SKU" required />
-                            </div>
-                          )}
-                          <InputField label="VALOR RECEBIDO (R$)" name="valor_recebido" type="number" step="1" placeholder="0" required />
-                          <InputField label="VALOR ANUNCIADO (R$)" name="valor_anunciado" type="number" step="1" placeholder="0" required />
+                          {bonusSelected === "SKU / Item" && <div className="md:col-span-2"><InputField label="CÓDIGO SKU" name="sku_codigo" required /></div>}
+                          <InputField label="VALOR RECEBIDO" name="valor_recebido" value={valorRecebido} onChange={(e:any) => {setValorRecebido(e.target.value); localStorage.setItem("temp_v_rec", e.target.value)}} type="number" step="1" required />
+                          <InputField label="VALOR ANUNCIADO" name="valor_anunciado" value={valorAnunciado} onChange={(e:any) => {setValorAnunciado(e.target.value); localStorage.setItem("temp_v_anu", e.target.value)}} type="number" step="1" required />
                         </>
                       )}
                     </div>
-
-                    <FieldWrapper label="EXPLIQUE SEU CASO" icon={<FileText size={20}/>}>
-                      <textarea name="detalhamento" required rows={4} className="custom-input resize-none py-5" placeholder="Descreva o ocorrido..." />
-                    </FieldWrapper>
-
-                    <FieldWrapper label="EVIDÊNCIAS (MÁX 5)" icon={<Paperclip size={20}/>}>
+                    <FieldWrapper label="EXPLIQUE SEU CASO (OPCIONAL)"><textarea name="detalhamento" value={detalhamento} onChange={(e) => {setDetalhamento(e.target.value); localStorage.setItem("temp_det", e.target.value)}} rows={4} className="custom-input py-5" /></FieldWrapper>
+                    <FieldWrapper label="EVIDÊNCIAS (OPCIONAL)">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {selectedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in zoom-in">
-                            <span className="text-sm font-bold text-blue-700 truncate max-w-[200px]">{file.name}</span>
-                            <button type="button" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-full"><X size={18} /></button>
+                        {selectedFiles.map((f, i) => (
+                          <div key={i} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in zoom-in">
+                            <span className="text-sm font-bold text-blue-700 truncate">{f.name}</span>
+                            <button type="button" onClick={() => setSelectedFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-full"><X size={18} /></button>
                           </div>
                         ))}
                         {selectedFiles.length < 5 && (
-                          <label className="flex items-center justify-center gap-3 p-5 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all">
+                          <label className="flex items-center justify-center gap-3 p-5 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30">
                             <input type="file" multiple accept="image/*" onChange={(e) => e.target.files && setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)].slice(0, 5))} className="hidden" />
-                            <Plus size={22} className="text-slate-400" /> <span className="text-sm font-black text-slate-500 uppercase tracking-widest">Anexar Print</span>
+                            <Plus size={22} /><span className="text-sm font-black uppercase">Anexar Print</span>
                           </label>
                         )}
                       </div>
@@ -275,17 +276,15 @@ export default function ZubalePortal() {
                   </section>
                 )}
               </div>
-
-              <div className="p-7 md:p-12 bg-slate-50/50 border-t border-slate-100 rounded-[2.5rem]">
-                <button type="submit" disabled={isPending || !bonusSelected} className="w-full bg-blue-600 text-white font-black py-5 md:py-7 rounded-[1.5rem] md:rounded-[2rem] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-4 text-xl md:text-2xl shadow-xl shadow-blue-100 uppercase tracking-tight">
-                  {isPending ? <Loader2 className="animate-spin" size={28} /> : "Enviar Contestação"}
+              <div className="p-7 md:p-12 bg-slate-50/50 border-t rounded-[2.5rem]">
+                <button type="submit" disabled={isPending || !bonusSelected} className="w-full bg-blue-600 text-white font-black py-6 rounded-[2rem] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-4 text-xl md:text-2xl shadow-xl">
+                  {isPending ? <Loader2 className="animate-spin" /> : "Confirmar e Enviar Contestação"}
                 </button>
               </div>
             </form>
           </div>
         )}
-
-        <footer className="mt-12 text-center text-slate-400 text-xs md:text-sm font-medium italic">© {new Date().getFullYear()} Zubale Brasil · Todos os direitos reservados</footer>
+        <footer className="mt-12 text-center text-slate-400 text-xs md:text-sm font-medium italic">© 2026 Zubale Brasil · Todos os direitos reservados</footer>
       </main>
 
       <style jsx global>{`
@@ -308,37 +307,37 @@ function SectionHeader({ number, title, subtitle }: any) {
   );
 }
 
-function FieldWrapper({ label, icon, error, children }: any) {
+function FieldWrapper({ label, error, children }: any) {
   return (
     <div className="space-y-3 relative">
       {error && <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-bold text-sm mb-2 animate-in slide-in-from-top-2"><AlertCircle size={18} /> {error}</div>}
-      <label className="flex items-center gap-2 text-[11px] md:text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{icon} {label}</label>
+      <label className="flex items-center gap-2 text-[11px] md:text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
       {children}
     </div>
   );
 }
 
-function InputField({ label, icon, error, ...props }: any) {
-  return <FieldWrapper label={label} icon={icon} error={error}><input className="custom-input" {...props} /></FieldWrapper>;
+function InputField({ label, error, ...props }: any) {
+  return <FieldWrapper label={label} error={error}><input className="custom-input" {...props} /></FieldWrapper>;
 }
 
 function SuccessView() {
   return (
-    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
+    <div className="bg-white p-12 md:p-24 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in">
       <CheckCircle2 size={70} className="mx-auto text-emerald-500 mb-10" />
       <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 italic">Solicitação Recebida!</h2>
       <div className="text-slate-600 font-medium text-lg md:text-xl mb-12 max-w-xl mx-auto leading-relaxed space-y-6">
         <p>Reporte registrado com sucesso. Analisaremos e retornaremos via e-mail em até <strong>5 dias úteis</strong>.</p>
         <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm md:text-base text-left space-y-3 shadow-sm">
-          <p className="font-black text-slate-800 uppercase tracking-tight">Regras de Revisão:</p>
+          <p className="font-black text-slate-800 uppercase tracking-tight">Próximos Passos:</p>
           <ul className="list-disc list-inside space-y-2 text-slate-500">
             <li>Pedidos feitos antes de 3 dias úteis da tarefa serão negados.</li>
-            <li>Protocolos duplicados anulam automaticamente a contestação.</li>
-            <li>A identificação depende de um telefone de cadastro válido.</li>
+            <li>O uso de protocolos duplicados anula a revisão.</li>
+            <li>Verifique seu e-mail cadastrado regularmente.</li>
           </ul>
         </div>
       </div>
-      <button onClick={() => window.location.reload()} className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-sm md:text-lg tracking-widest hover:bg-slate-800 transition-all shadow-xl">Novo Reporte</button>
+      <button onClick={() => window.location.reload()} className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-sm md:text-lg tracking-widest shadow-xl">Novo Reporte</button>
     </div>
   );
 }
