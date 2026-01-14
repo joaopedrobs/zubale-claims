@@ -11,25 +11,54 @@ export async function submitContestation(prevState: FormState, formData: FormDat
   const webhookUrl = process.env.N8N_WEBHOOK_URL;
   const lojaEnviada = formData.get("loja")?.toString();
 
-  if (!webhookUrl) return { success: false, error: "Erro de configuração no servidor." };
+  if (!webhookUrl) {
+    console.error("Erro: N8N_WEBHOOK_URL não definida.");
+    return { success: false, error: "Erro de configuração no servidor." };
+  }
 
   try {
-    // 1. Validação de Segurança: Buscar a lista oficial para conferir a loja
-    const storeRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/stores`);
-    const validStores = await storeRes.json();
-    
-    if (!validStores.includes(lojaEnviada)) {
-      return { success: false, error: "Loja Inválida! Por favor, selecione uma opção da lista oficial." };
+    // 1. Validação de Loja (CORREÇÃO DE URL)
+    // Em produção, usar URL relativa ou absoluta correta é crucial.
+    // Melhor abordagem: validar diretamente se possível ou garantir que a URL base esteja certa.
+    const appUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+
+    console.log("Validando loja na URL:", `${appUrl}/api/stores`); // Log para debug na Vercel
+
+    try {
+      const storeRes = await fetch(`${appUrl}/api/stores`);
+      if (storeRes.ok) {
+        const validStores = await storeRes.json();
+        if (Array.isArray(validStores) && !validStores.includes(lojaEnviada)) {
+          return { success: false, error: "Loja Inválida! Por favor, selecione uma opção da lista oficial." };
+        }
+      } else {
+        console.warn("API de lojas falhou, pulando validação estrita de loja.");
+      }
+    } catch (e) {
+      console.warn("Erro ao conectar na API de lojas, pulando validação.", e);
     }
 
-    // 2. Upload de Evidências (Opcional)
+    // 2. Upload de Evidências (COM TRATAMENTO DE ERRO)
     const files = formData.getAll("evidencias_files") as File[];
-    const uploadPromises = files
-      .filter(file => file.size > 0)
-      .map(file => put(`contestacoes/${Date.now()}-${file.name}`, file, { access: 'public' }));
+    let evidencias_urls: string[] = [];
 
-    const blobs = await Promise.all(uploadPromises);
-    const evidencias_urls = blobs.map(b => b.url);
+    if (files && files.length > 0) {
+      try {
+        const uploadPromises = files
+          .filter(file => file.size > 0 && file.name !== "undefined")
+          .map(file => put(`contestacoes/${Date.now()}-${file.name}`, file, { access: 'public' }));
+
+        if (uploadPromises.length > 0) {
+          const blobs = await Promise.all(uploadPromises);
+          evidencias_urls = blobs.map(b => b.url);
+        }
+      } catch (uploadError) {
+        console.error("Erro no upload de arquivos:", uploadError);
+        // Não falhar o envio todo se apenas o upload de imagem falhar
+      }
+    }
 
     // 3. Envio para n8n
     const rawData = Object.fromEntries(formData.entries());
@@ -42,13 +71,20 @@ export async function submitContestation(prevState: FormState, formData: FormDat
         ...rawData,
         evidencias_urls,
         timestamp: new Date().toISOString(),
+        source: "zubale-portal-v2"
       }),
     });
 
-    if (!response.ok) throw new Error();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Erro n8n (${response.status}):`, errorText);
+      throw new Error(`Falha no n8n: ${response.status}`);
+    }
 
     return { success: true };
+
   } catch (error) {
+    console.error("Erro fatal no submitContestation:", error);
     return { success: false, error: "Falha ao enviar. Tente novamente." };
   }
 }
