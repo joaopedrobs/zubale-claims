@@ -1,467 +1,364 @@
 "use client";
 
-import { useState, useActionState, useEffect, useRef } from "react";
-import { submitContestation, type FormState } from "./actions";
+import { useState } from "react";
 import { 
-  CheckCircle2, Loader2, Search, Building2, 
-  AlertCircle, Info, Paperclip, X, Plus, ShieldCheck, ChevronDown, Clock, Copy, BookOpen, Hash, FileText
+  User, Building2, ChevronRight, ShieldAlert, IdCard, 
+  Package, FileText, Users, Megaphone, Calendar, Ban, 
+  Wallet, Lock, Archive, AlertTriangle
 } from "lucide-react";
 
-// --- DADOS ESTÁTICOS ---
-const SP_HOLIDAYS = [
-  "2025-01-01", "2025-01-25", "2025-03-03", "2025-03-04", "2025-04-18", "2025-04-21", 
-  "2025-05-01", "2025-06-19", "2025-07-09", "2025-09-07", "2025-10-12", "2025-11-02", 
-  "2025-11-15", "2025-11-20", "2025-12-25",
-  "2026-01-01", "2026-01-25", "2026-02-16", "2026-02-17", "2026-04-03", "2026-04-21", 
-  "2026-05-01", "2026-06-04", "2026-07-09", "2026-09-07", "2026-10-12", "2026-11-02", 
-  "2026-11-15", "2026-11-20", "2026-12-25"
-];
+import Header from "./components/Header"; 
+import GenericForm from "./components/GenericForm"; 
+import ZubaleBonusForm from "./components/BonusForm"; 
+import StoreSelect from "./components/StoreSelect"; 
 
-const BONUS_TYPES = ["Bônus Adicional 2 Turnos", "Bônus Data Comemorativa", "Bônus de Domingo", "Bônus de Fim de Ano", "Bônus de Treinamento", "Bônus Especial", "Bônus Ofertado por WhatsApp ou Push App", "Conectividade", "Hora Certa", "Indicação de Novo Zubalero", "Meta de Produtividade", "SKU / Item"];
+export default function PortalHome() {
+  const [view, setView] = useState<"home" | "menu_zubalero" | "menu_lojista">("home");
+  const [selectedForm, setSelectedForm] = useState<string | null>(null);
+  const [materialSelected, setMaterialSelected] = useState("");
 
-export default function ZubalePortal() {
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("+55");
-  
-  const [bonusSelected, setBonusSelected] = useState("");
-  const [dataContestacao, setDataContestacao] = useState("");
-  const [turno, setTurno] = useState("");
-  const [storeSearch, setStoreSearch] = useState("");
-  const [valorRecebido, setValorRecebido] = useState("");
-  const [valorAnunciado, setValorAnunciado] = useState("");
-  const [detalhamento, setDetalhamento] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [storesDatabase, setStoresDatabase] = useState<string[]>([]);
-  const [isLoadingStores, setIsLoadingStores] = useState(true);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Refs para Scroll
-  const fieldRefs: Record<string, any> = {
-    nome: useRef<HTMLDivElement>(null),
-    telefone: useRef<HTMLDivElement>(null),
-    email: useRef<HTMLDivElement>(null),
-    tipoSolicitacao: useRef<HTMLDivElement>(null),
-    data_contestacao: useRef<HTMLDivElement>(null),
-    loja: useRef<HTMLDivElement>(null),
-    codigo_indicacao: useRef<HTMLDivElement>(null),
-    sku_codigo: useRef<HTMLDivElement>(null),
-  };
-
-  const [state, formAction, isPending] = useActionState<FormState, FormData>(submitContestation, null);
-
-  useEffect(() => {
-    // Carregar Identidade
-    const savedNome = localStorage.getItem("zubale_nome");
-    const savedEmail = localStorage.getItem("zubale_email");
-    const savedPhone = localStorage.getItem("zubale_phone");
-    if (savedNome) setNome(savedNome);
-    if (savedEmail) setEmail(savedEmail);
-    if (savedPhone) setPhone(savedPhone);
-
-    async function loadStores() {
-      try {
-        const response = await fetch("/api/stores");
-        const data = await response.json();
-        setStoresDatabase(Array.isArray(data) ? data : []);
-      } catch (err) { console.error("Erro ao carregar lojas"); } 
-      finally { setIsLoadingStores(false); }
-    }
-    loadStores();
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsDropdownOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (state?.success) {
-      setBonusSelected("");
-      setDataContestacao("");
-      setTurno("");
-      setStoreSearch("");
-      setValorRecebido("");
-      setValorAnunciado("");
-      setDetalhamento("");
-      setSelectedFiles([]);
-    }
-  }, [state]);
-
-  const calculateLimitDate = () => {
-    let date = new Date();
-    let count = 0;
-    while (count < 3) {
-      date.setDate(date.getDate() - 1);
-      const day = date.getDay();
-      const str = date.toISOString().split('T')[0];
-      if (day !== 0 && day !== 6 && !SP_HOLIDAYS.includes(str)) count++;
-    }
-    return date;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, "");
-    if (!val.startsWith("55")) val = "55" + val;
-    const finalPhone = "+" + val.substring(0, 13);
-    setPhone(finalPhone);
-    localStorage.setItem("zubale_phone", finalPhone);
-  };
-
-  const handleIdentityChange = (field: 'nome' | 'email', value: string) => {
-    if (field === 'nome') {
-      setNome(value);
-      localStorage.setItem("zubale_nome", value);
+  const goBack = () => {
+    if (selectedForm) {
+      setSelectedForm(null);
+      setMaterialSelected("");
     } else {
-      setEmail(value);
-      localStorage.setItem("zubale_email", value);
+      setView("home");
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      // Validação simples de tamanho no front (4.5MB Max)
-      const totalSize = [...selectedFiles, ...newFiles].reduce((acc, f) => acc + f.size, 0);
-      if (totalSize > 4.5 * 1024 * 1024) {
-        alert("O tamanho total dos arquivos não pode exceder 4.5MB.");
-        return;
-      }
-      setSelectedFiles(prev => [...prev, ...newFiles].slice(0, 5));
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleValidateClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const errors: Record<string, string> = {};
-    const telefoneLimpo = phone.replace(/\D/g, "");
-
-    if (!nome.trim()) errors.nome = "Informe seu nome completo.";
-    if (telefoneLimpo.length !== 13) errors.telefone = "Informe o telefone completo com DDD.";
-    if (!email.trim()) errors.email = "E-mail de cadastro obrigatório.";
-    
-    if (!bonusSelected) errors.tipoSolicitacao = "Selecione o tipo de bônus.";
-    if (dataContestacao) {
-      const taskDate = new Date(dataContestacao + "T00:00:00");
-      const limit = calculateLimitDate();
-      limit.setHours(0,0,0,0);
-      if (taskDate > limit) errors.data_contestacao = "A contestação só pode ser aberta após 3 dias úteis da tarefa.";
-    } else {
-      errors.data_contestacao = "Data obrigatória.";
-    }
-    if (!storesDatabase.includes(storeSearch)) errors.loja = "Selecione uma loja válida.";
-
-    if (bonusSelected === "Indicação de Novo Zubalero") {
-       const el = document.querySelector('input[name="codigo_indicacao"]') as HTMLInputElement;
-       if (!el?.value.trim()) errors.codigo_indicacao = "Código de indicação obrigatório.";
-    }
-    if (bonusSelected === "SKU / Item") {
-       const el = document.querySelector('input[name="sku_codigo"]') as HTMLInputElement;
-       if (!el?.value.trim()) errors.sku_codigo = "Código SKU obrigatório.";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      e.preventDefault(); 
-      setFieldErrors(errors);
-      const first = Object.keys(errors)[0];
-      fieldRefs[first]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      setFieldErrors({});
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans text-slate-900">
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
-          <img src="/logo_zubale.png" alt="Zubale Logo" className="h-7 md:h-9 w-auto object-contain" />
-          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-[11px] font-black border border-emerald-100 shadow-sm">
-            <ShieldCheck size={14} /> <span className="hidden xs:inline uppercase tracking-tighter">Ambiente Seguro</span>
+  const renderContent = () => {
+    // =========================================================================
+    // 1. TELA INICIAL
+    // =========================================================================
+    if (view === "home") {
+      return (
+        <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500 pt-8">
+          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-6 text-center tracking-tight italic">
+            PORTAL DE <span className="text-blue-600">SOLICITAÇÕES</span>
+          </h1>
+          <p className="text-slate-500 font-bold text-lg mb-12 text-center max-w-lg leading-relaxed">
+            Selecione seu perfil abaixo para acessar os formulários.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4">
+            <ProfileCard 
+              icon={<User size={48} />} 
+              title="SOU ZUBALERO" 
+              desc="Pagamentos, denúncias e materiais."
+              color="blue"
+              onClick={() => setView("menu_zubalero")}
+            />
+            <ProfileCard 
+              icon={<Building2 size={48} />} 
+              title="SOU LOJISTA" 
+              desc="Solicitações operacionais e reportes."
+              color="emerald"
+              onClick={() => setView("menu_lojista")}
+            />
           </div>
         </div>
-      </nav>
+      );
+    }
 
-      <main className="max-w-4xl mx-auto px-4 md:px-6 pt-10 md:pt-16">
-        <div className="text-center mb-10 md:mb-12 animate-in fade-in duration-700">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight leading-tight italic">
-            Portal Oficial de <span className="text-blue-600">Contestação</span>
-          </h1>
-          <p className="text-slate-500 font-medium text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Canal exclusivo para parceiros reportarem divergências de pagamentos com segurança e agilidade.
-          </p>
-        </div>
+    // =========================================================================
+    // 2. CENTRAL DO PARCEIRO (ORDEM POR IMPORTÂNCIA)
+    // =========================================================================
+    if (view === "menu_zubalero" && !selectedForm) {
+      return (
+        <div className="max-w-2xl mx-auto px-4 pt-4 animate-in slide-in-from-right-8 duration-500">
+          <h2 className="text-3xl font-black text-slate-900 mb-2 italic">CENTRAL DO PARCEIRO</h2>
+          <p className="text-slate-500 font-bold mb-8">Selecione o tipo de solicitação:</p>
+          
+          <div className="space-y-4">
+            {/* 1. PAGAMENTO DE BÔNUS (Mais importante) */}
+            <MenuOption 
+                icon={<Package className="text-white" size={24} />} 
+                iconBg="bg-blue-600" 
+                title="PAGAMENTO DE BÔNUS" 
+                desc="Contestar valores não recebidos ou divergentes." 
+                onClick={() => setSelectedForm("contestacao_bonus")} 
+            />
 
-        {state?.success ? (
-          <SuccessView protocolo={state.protocolo} />
-        ) : (
-          <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* 2. OUVIDORIA / CONDUTA */}
+            <MenuOption 
+                icon={<AlertTriangle className="text-white" size={24} />} 
+                iconBg="bg-orange-500" 
+                title="OUVIDORIA / CONDUTA" 
+                desc="Denunciar fraudes, problemas em loja ou má conduta." 
+                onClick={() => setSelectedForm("ouvidoria_conduta")} 
+            />
+
+            {/* 3. CONTESTAR BLOQUEIO */}
+            <MenuOption 
+                icon={<Lock className="text-white" size={24} />} 
+                iconBg="bg-red-500" 
+                title="CONTESTAR BLOQUEIO" 
+                desc="Solicitar revisão de suspensão da conta." 
+                onClick={() => setSelectedForm("revisao_bloqueio")} 
+            />
+
+            {/* 4. SOLICITAR SAQUE (BLOQUEIO) */}
+            <MenuOption 
+                icon={<Wallet className="text-white" size={24} />} 
+                iconBg="bg-emerald-500" 
+                title="SOLICITAR SAQUE (BLOQUEIO)" 
+                desc="Resgate de saldo retido após bloqueio definitivo." 
+                onClick={() => setSelectedForm("solicitacao_saque")} 
+            />
             
-            <div className="bg-blue-600 rounded-3xl p-7 md:p-8 text-white shadow-xl shadow-blue-200 border border-blue-500 relative overflow-hidden group">
-              <div className="absolute -right-8 -top-8 text-blue-500 opacity-20 transform rotate-12 transition-transform group-hover:scale-110">
-                <Info size={160} />
-              </div>
-              <h3 className="text-xl font-black mb-5 flex items-center gap-2 italic uppercase tracking-tight">
-                <Info size={24} /> Regras de Utilização
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                <div className="flex gap-4">
-                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><Clock size={22} /></div>
-                  <div className="flex flex-col justify-center">
-                    <p className="text-sm font-bold text-blue-200 uppercase tracking-widest mb-1">Prazo de Abertura</p>
-                    <p className="text-base font-semibold leading-tight">Aguarde <span className="underline font-black decoration-white">3 dias úteis</span> após a tarefa.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="bg-blue-400/30 p-2 rounded-xl h-fit"><BookOpen size={22} /></div>
-                  <div className="flex flex-col justify-center">
-                    <p className="text-sm font-bold text-blue-200 uppercase tracking-widest mb-1">Dúvidas?</p>
-                    <p className="text-base font-medium leading-tight mb-1">Consulte as regras oficiais.</p>
-                    <a href="#" className="text-white underline font-black hover:text-blue-100 transition-colors text-sm truncate w-full block" onClick={(e) => e.preventDefault()}>[Link: Documento de Regras]</a>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* 5. SOLICITAR MATERIAIS */}
+            <MenuOption 
+                icon={<Archive className="text-white" size={24} />} 
+                iconBg="bg-slate-500" 
+                title="SOLICITAR MATERIAIS" 
+                desc="Crachás, coletes ou reposição de itens." 
+                onClick={() => setSelectedForm("solicitacao_materiais")} 
+            />
+          </div>
+        </div>
+      );
+    }
 
-            <form 
-              action={(formData) => {
-                // AQUI ESTAVA O ERRO: ANTES VOCÊ TINHA formData.delete("evidencias_files")
-                // AGORA NÓS ADICIONAMOS E NÃO DELETAMOS
-                selectedFiles.forEach(file => formData.append("evidencias_files", file));
-                formData.set("telefone", phone);
-                formData.set("loja", storeSearch);
-                formAction(formData);
-              }} 
-              className="space-y-6 md:space-y-8"
+    // =========================================================================
+    // 3. GESTÃO OPERACIONAL (LOJISTA)
+    // =========================================================================
+    if (view === "menu_lojista" && !selectedForm) {
+      return (
+        <div className="max-w-2xl mx-auto px-4 pt-4 animate-in slide-in-from-right-8 duration-500">
+          <h2 className="text-3xl font-black text-slate-900 mb-2 italic">GESTÃO OPERACIONAL</h2>
+          <p className="text-slate-500 font-bold mb-8">Ferramentas para lojas parceiras:</p>
+          
+          <div className="space-y-4">
+            <MenuOption icon={<ShieldAlert className="text-white" size={24} />} iconBg="bg-red-600" title="REPORTAR CONDUTA / BLOQUEIO" desc="Solicitar bloqueio de parceiro." onClick={() => setSelectedForm("bloqueio_zubalero")} />
+             <MenuOption icon={<Ban className="text-white" size={24} />} iconBg="bg-orange-500" title="REPORTAR FALTA (NO SHOW)" desc="Informar não comparecimento." onClick={() => setSelectedForm("reportar_falta_lojista")} />
+            <MenuOption icon={<Users className="text-white" size={24} />} iconBg="bg-emerald-500" title="SOLICITAR REFORÇO" desc="Pedir mais Zubaleros." onClick={() => setSelectedForm("solicitacao_reforco")} />
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // 4. FORMULÁRIOS RENDERIZADOS (Com Regras de Negócio)
+    // =========================================================================
+    if (selectedForm) {
+      return (
+        <div className="px-4 pt-4 pb-20">
+          
+          {/* 1. PAGAMENTO DE BÔNUS */}
+          {selectedForm === "contestacao_bonus" && <ZubaleBonusForm />}
+          
+          {/* 2. OUVIDORIA / CONDUTA */}
+          {selectedForm === "ouvidoria_conduta" && (
+            <GenericForm 
+                formType="ouvidoria_conduta" 
+                title="OUVIDORIA / CONDUTA" 
+                description="Canal seguro para denúncias e reportes graves."
+                slaMessage="7 dias úteis (Investigação)"
             >
-              <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-7 md:p-14 space-y-9 md:space-y-12">
-                
-                <section className="space-y-7 md:space-y-8">
-                  <SectionHeader number="01" title="SUA IDENTIFICAÇÃO" subtitle="Dados para localização do cadastro" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                    <div ref={fieldRefs.nome} className="md:col-span-2">
-                      <InputField label="NOME COMPLETO" name="nome" value={nome} onChange={(e:any) => handleIdentityChange('nome', e.target.value)} placeholder="Conforme documento" error={fieldErrors.nome} required />
-                    </div>
-                    <div ref={fieldRefs.telefone}>
-                      <InputField label="TELEFONE (DDD + NÚMERO)" name="telefone" value={phone} onChange={handlePhoneChange} error={fieldErrors.telefone} inputMode="numeric" required />
-                    </div>
-                    <div ref={fieldRefs.email}>
-                      <InputField label="E-MAIL DE CADASTRO" name="email" type="email" value={email} onChange={(e:any) => handleIdentityChange('email', e.target.value)} placeholder="exemplo@zubale.com" error={fieldErrors.email} required />
-                    </div>
-                  </div>
-                </section>
+               <div className="space-y-6">
+                 <StoreSelect name="loja_relacionada" label="LOJA DO OCORRIDO (OPCIONAL)" />
+                 
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                      <ShieldAlert size={14} className="inline mr-1 mb-0.5"/> TIPO DE DENÚNCIA
+                    </label>
+                    <select name="tipo_denuncia" className="custom-select h-[60px]" required>
+                        <option value="">SELECIONE...</option>
+                        <option>RECLAMAÇÃO DE LOJA (Tratamento/Erros)</option>
+                        <option>ACESSO INDEVIDO A DADOS</option>
+                        <option>ENVIO DE TAREFAS DE OUTRO ZUBALERO</option>
+                        <option>INFORMAÇÕES INCONSISTENTES NOS PEDIDOS</option>
+                        <option>TAREFA FINALIZADA SEM PRESENÇA FÍSICA</option>
+                        <option>USO DE FAKE GPS / MANIPULAÇÃO</option>
+                        <option>OUTROS</option>
+                    </select>
+                 </div>
 
-                <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50">
-                  <SectionHeader number="02" title="DADOS DA ATUAÇÃO" subtitle="Sobre o turno em que ocorreu a divergência" />
-                  <div className="space-y-7 md:space-y-8">
-                    <div ref={fieldRefs.tipoSolicitacao}>
-                      <FieldWrapper label="O QUE DESEJA CONTESTAR?" icon={<AlertCircle size={20}/>} error={fieldErrors.tipoSolicitacao}>
-                        <select name="tipoSolicitacao" className="custom-select" value={bonusSelected} onChange={(e) => setBonusSelected(e.target.value)} required>
-                          <option value="">Selecione o tipo de bônus...</option>
-                          {BONUS_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                      </FieldWrapper>
-                    </div>
+                 <div>
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                     <FileText size={14} className="inline mr-1 mb-0.5"/> RELATO DETALHADO
+                   </label>
+                   <textarea name="detalhes" placeholder="DESCREVA O QUE ACONTECEU COM O MÁXIMO DE DETALHES (NOMES, HORÁRIOS, PROVAS)..." required className="custom-input min-h-[150px] py-4"/>
+                 </div>
+               </div>
+            </GenericForm>
+          )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                      <div ref={fieldRefs.data_contestacao}>
-                        {/* INPUT NATIVO - O formato visual é controlado pelo navegador (pt-BR se o sistema estiver em PT) */}
-                        <InputField label="DATA DA REALIZAÇÃO" name="data_contestacao" type="date" value={dataContestacao} onChange={(e:any) => setDataContestacao(e.target.value)} error={fieldErrors.data_contestacao} required />
-                        <p className="text-[11px] font-bold text-slate-400 italic px-2 mt-2 uppercase tracking-tighter">* Respeite o prazo de 3 dias úteis</p>
-                      </div>
-                      <FieldWrapper label="TURNO ATUADO" icon={<Hash size={20}/>}>
-                        <select name="turno" className="custom-select" value={turno} onChange={(e) => setTurno(e.target.value)} required>
-                          <option value="">Selecione o turno...</option>
-                          <option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option><option value="Integral">Integral</option>
-                        </select>
-                      </FieldWrapper>
-                    </div>
+          {/* 3. CONTESTAR BLOQUEIO */}
+          {selectedForm === "revisao_bloqueio" && (
+            <GenericForm 
+                formType="revisao_bloqueio" 
+                title="CONTESTAR BLOQUEIO" 
+                description="Solicite a revisão da suspensão da sua conta."
+                slaMessage="5 dias úteis"
+            >
+               <div className="space-y-6">
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        <Calendar size={14} className="inline mr-1 mb-0.5"/> DATA DO BLOQUEIO
+                    </label>
+                    <input type="date" name="data_bloqueio" required className="custom-input"/>
+                 </div>
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        <FileText size={14} className="inline mr-1 mb-0.5"/> JUSTIFICATIVA / DEFESA
+                    </label>
+                    <textarea name="justificativa" placeholder="POR QUE O BLOQUEIO FOI INDEVIDO? EXPLIQUE..." required className="custom-input min-h-[150px] py-4"/>
+                 </div>
+               </div>
+            </GenericForm>
+          )}
 
-                    <div ref={fieldRefs.loja}>
-                      <FieldWrapper label="LOJA ATUADA (PESQUISE NA LISTA)" icon={<Search size={20}/>} error={fieldErrors.loja}>
-                        <div className="relative" ref={dropdownRef}>
-                          <div className={`relative flex items-center bg-[#f8fafc] border-2 rounded-xl transition-all ${isDropdownOpen ? 'border-blue-500 bg-white ring-4 ring-blue-50' : 'border-[#f1f5f9]'}`} onClick={() => !isLoadingStores && setIsDropdownOpen(true)}>
-                            <input type="text" placeholder="DIGITE O NOME EXATO DA LOJA..." className="w-full p-5 bg-transparent font-bold text-slate-900 outline-none uppercase text-base md:text-lg" value={storeSearch} onChange={(e) => { setStoreSearch(e.target.value); setIsDropdownOpen(true); }} autoComplete="off" />
-                            <ChevronDown className={`mr-4 transition-transform text-slate-400 ${isDropdownOpen ? 'rotate-180' : ''}`} size={22} />
-                          </div>
-                          {isDropdownOpen && (
-                            <div className="absolute z-[60] w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-                              <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
-                                {storesDatabase.filter(s => s.toLowerCase().includes(storeSearch.toLowerCase())).map((loja, i) => (
-                                  <div key={i} className="px-6 py-4 hover:bg-blue-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-none uppercase transition-colors flex items-center gap-3" onClick={() => { setStoreSearch(loja); setIsDropdownOpen(false); setFieldErrors(prev => ({...prev, loja: ""})); }}>
-                                    <Building2 size={18} className="text-slate-300" /> {loja}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </FieldWrapper>
-                    </div>
-                  </div>
-                </section>
+          {/* 4. SOLICITAR SAQUE (BLOQUEIO) */}
+          {selectedForm === "solicitacao_saque" && (
+            <GenericForm 
+                formType="solicitacao_saque" 
+                title="SOLICITAR SAQUE" 
+                description="Transferência de saldo retido (Apenas para contas bloqueadas)."
+                slaMessage="10 dias úteis (Processamento Financeiro)"
+            >
+               <div className="space-y-6">
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        <Wallet size={14} className="inline mr-1 mb-0.5"/> CHAVE PIX
+                    </label>
+                    <input name="chave_pix" placeholder="CPF, EMAIL OU CELULAR" required className="custom-input"/>
+                 </div>
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        <User size={14} className="inline mr-1 mb-0.5"/> NOME DO TITULAR DA CONTA
+                    </label>
+                    <input name="titular_conta" placeholder="NOME COMPLETO (DEVE SER O MESMO DO CADASTRO)" required className="custom-input"/>
+                 </div>
+                 <div>
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                        <FileText size={14} className="inline mr-1 mb-0.5"/> OBSERVAÇÕES
+                    </label>
+                    <textarea name="observacoes" placeholder="ALGUMA INFORMAÇÃO ADICIONAL?" className="custom-input min-h-[100px] py-4"/>
+                 </div>
+               </div>
+            </GenericForm>
+          )}
 
-                <section className="space-y-7 md:space-y-8 pt-9 border-t border-slate-50 animate-in fade-in slide-in-from-top-4 duration-500">
-                  <SectionHeader number="03" title="DETALHES DO REPORTE" subtitle="Valores e justificativas" />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                    {bonusSelected === "Indicação de Novo Zubalero" ? (
-                      <div className="md:col-span-2" ref={fieldRefs.codigo_indicacao}>
-                        <InputField label="CÓDIGO DE INDICAÇÃO" name="codigo_indicacao" icon={<Hash size={18}/>} placeholder="Código utilizado" required />
-                      </div>
-                    ) : (
-                      <>
-                        {bonusSelected === "SKU / Item" && (
-                          <div className="md:col-span-2" ref={fieldRefs.sku_codigo}>
-                            <InputField label="CÓDIGO SKU" name="sku_codigo" icon={<Hash size={18}/>} placeholder="Digite o código SKU" required />
-                          </div>
-                        )}
-                        <InputField label="VALOR RECEBIDO (R$)" name="valor_recebido" value={valorRecebido} onChange={(e:any) => setValorRecebido(e.target.value)} type="number" step="1" placeholder="0" required />
-                        <InputField label="VALOR ANUNCIADO (R$)" name="valor_anunciado" value={valorAnunciado} onChange={(e:any) => setValorAnunciado(e.target.value)} type="number" step="1" placeholder="0" required />
-                      </>
-                    )}
-                  </div>
-                  <FieldWrapper label="EXPLIQUE SEU CASO (OPCIONAL)" icon={<FileText size={20}/>}>
-                    <textarea name="detalhamento" value={detalhamento} onChange={(e) => setDetalhamento(e.target.value)} rows={4} className="custom-input resize-none py-5" placeholder="Descreva o ocorrido (opcional)..." />
-                  </FieldWrapper>
-                  <FieldWrapper label="EVIDÊNCIAS (OPCIONAL - MÁX 5)" icon={<Paperclip size={20}/>}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {selectedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in zoom-in">
-                          <span className="text-sm font-bold text-blue-700 truncate max-w-[200px]">{file.name}</span>
-                          <button type="button" onClick={() => removeFile(index)} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-full"><X size={18} /></button>
-                        </div>
-                      ))}
-                      {selectedFiles.length < 5 && (
-                        <label className="flex items-center justify-center gap-3 p-5 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all">
-                          <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" ref={fileInputRef} />
-                          <Plus size={22} className="text-slate-400" /> <span className="text-sm font-black text-slate-500 uppercase tracking-widest">Anexar Print</span>
-                        </label>
-                      )}
-                    </div>
-                  </FieldWrapper>
-                </section>
-              </div>
+          {/* 5. SOLICITAR MATERIAIS */}
+          {selectedForm === "solicitacao_materiais" && (
+            <GenericForm 
+                formType="solicitacao_materiais" 
+                title="SOLICITAR MATERIAIS" 
+                description="Reposição de itens de trabalho."
+                slaMessage="5 a 10 dias úteis (Envio)"
+            >
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                <Package size={14} className="inline mr-1 mb-0.5"/> ITEM NECESSÁRIO
+              </label>
+              
+              <select 
+                name="item_select" 
+                className="custom-select mb-4 h-[60px]" 
+                required 
+                value={materialSelected}
+                onChange={(e) => setMaterialSelected(e.target.value)}
+              >
+                  <option value="">SELECIONE...</option>
+                  <option value="CRACHÁ DE ACESSO">CRACHÁ DE ACESSO</option>
+                  <option value="OUTROS">OUTROS (DIGITAR)</option>
+              </select>
 
-              {state?.error && (
-                <div className="mx-6 md:mx-8 mb-8 p-6 bg-red-50 border border-red-100 rounded-3xl flex items-center gap-4 text-red-700 text-sm md:text-base font-bold animate-in slide-in-from-top-2">
-                  <AlertCircle size={24} className="flex-shrink-0" />
-                  {state.error}
+              {materialSelected === "OUTROS" && (
+                <div className="animate-in fade-in slide-in-from-top-2 mb-4">
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                     DIGITE O NOME DO ITEM
+                   </label>
+                   <input name="item_digitado" placeholder="EX: BAG, COLETE..." required className="custom-input"/>
                 </div>
               )}
+              
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
+                <FileText size={14} className="inline mr-1 mb-0.5"/> MOTIVO DA SOLICITAÇÃO
+              </label>
+              <textarea name="motivo" placeholder="EX: PERDI MEU CRACHÁ..." required className="custom-input min-h-[120px] py-4" />
+            </GenericForm>
+          )}
 
-              <div className="p-7 md:p-12 bg-slate-50/50 border-t border-slate-100 rounded-[2.5rem]">
-                <button 
-                  type="submit" 
-                  onClick={handleValidateClick}
-                  disabled={isPending || !bonusSelected} 
-                  className="w-full bg-blue-600 text-white font-black py-5 md:py-7 rounded-[1.5rem] md:rounded-[2rem] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-4 text-xl md:text-2xl shadow-xl shadow-blue-100 uppercase tracking-tight"
-                >
-                  {isPending ? <Loader2 className="animate-spin" size={28} /> : "Enviar Contestação"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+          {/* === [LOJISTA] BLOQUEIO DE ZUBALERO === */}
+          {selectedForm === "bloqueio_zubalero" && (
+            <GenericForm formType="bloqueio_zubalero" title="SOLICITAR BLOQUEIO" description="Reporte oficial de conduta.">
+               <div className="space-y-6">
+                 <StoreSelect name="loja_solicitante" label="SUA LOJA" required />
+                 <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><User size={14} className="inline mr-1 mb-0.5"/> NOME OU ID DO ZUBALERO</label><input name="nome_zubalero" placeholder="NOME DO PARCEIRO" required className="custom-input"/></div>
+                 <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><ShieldAlert size={14} className="inline mr-1 mb-0.5"/> MOTIVO</label><select name="motivo_bloqueio" className="custom-select h-[60px]" required><option value="">SELECIONE...</option><option>COMPORTAMENTO INADEQUADO</option><option>BAIXA PRODUTIVIDADE</option><option>INSUBORDINAÇÃO</option><option>FURTO / SEGURANÇA</option><option>OUTROS</option></select></div>
+                 <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><FileText size={14} className="inline mr-1 mb-0.5"/> DETALHES</label><textarea name="detalhes" placeholder="DESCREVA O OCORRIDO..." required className="custom-input min-h-[150px] py-4"/></div>
+               </div>
+            </GenericForm>
+          )}
 
-        <footer className="mt-12 text-center text-slate-400 text-xs md:text-sm font-medium italic">
-          © {new Date().getFullYear()} Zubale Brasil · Todos os direitos reservados
-        </footer>
-      </main>
+          {/* === [LOJISTA] REPORTAR FALTA === */}
+          {selectedForm === "reportar_falta_lojista" && (
+            <GenericForm formType="reportar_falta_lojista" title="REPORTAR FALTA" description="Informe o não comparecimento de um parceiro.">
+               <div className="space-y-6">
+                 <StoreSelect name="loja_solicitante" label="SUA LOJA" required />
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><User size={14} className="inline mr-1 mb-0.5"/> NOME DO ZUBALERO</label><input name="nome_zubalero" placeholder="QUEM FALTOU?" required className="custom-input"/></div>
+                    <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><Calendar size={14} className="inline mr-1 mb-0.5"/> DATA DA FALTA</label><input type="date" name="data_falta" required className="custom-input"/></div>
+                 </div>
+                 <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><Users size={14} className="inline mr-1 mb-0.5"/> TURNO</label><select name="turno" className="custom-select h-[60px]" required><option value="">SELECIONE...</option><option>MANHÃ</option><option>TARDE</option><option>NOITE</option><option>INTEGRAL</option></select></div>
+               </div>
+            </GenericForm>
+          )}
 
-      <style jsx global>{`
-        .custom-input, .custom-select { width: 100%; border: 2px solid #f1f5f9; padding: 1.1rem 1.4rem; border-radius: 1.25rem; background: #f8fafc; font-weight: 700; color: #0f172a; transition: all 0.25s ease; font-size: 1.25rem; min-height: 4.2rem; appearance: none; }
-        @media (max-width: 768px) { .custom-input, .custom-select { padding: 1rem 1.2rem; font-size: 1.1rem; min-height: 4rem; } }
-        .custom-input:focus, .custom-select:focus { outline: none; border-color: #2563eb; background: white; box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08); transform: translateY(-1px); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        
-        /* Ajuste para input de data */
-        input[type="date"] {
-          position: relative;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator {
-          background: transparent;
-          bottom: 0;
-          color: transparent;
-          cursor: pointer;
-          height: auto;
-          left: 0;
-          position: absolute;
-          right: 0;
-          top: 0;
-          width: auto;
-        }
-      `}</style>
-    </div>
-  );
-}
+          {/* === [LOJISTA] SOLICITAR REFORÇO === */}
+          {selectedForm === "solicitacao_reforco" && (
+            <GenericForm formType="solicitacao_reforco" title="SOLICITAR REFORÇO" description="Peça mais parceiros para dias de alto movimento.">
+               <div className="space-y-6">
+                 <StoreSelect name="loja_solicitante" label="SUA LOJA" required />
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><Calendar size={14} className="inline mr-1 mb-0.5"/> DATA</label><input type="date" name="data_reforco" required className="custom-input"/></div>
+                   <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><Users size={14} className="inline mr-1 mb-0.5"/> QTD.</label><input type="number" name="qtd_pessoas" placeholder="EX: 2" min="1" max="10" required className="custom-input"/></div>
+                 </div>
+                 <div><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block"><Megaphone size={14} className="inline mr-1 mb-0.5"/> MOTIVO</label><select name="motivo_reforco" className="custom-select h-[60px]" required><option value="">SELECIONE...</option><option>AUMENTO DE DEMANDA</option><option>FALTA DE EQUIPE INTERNA</option><option>PROMOÇÃO / EVENTO</option></select></div>
+               </div>
+            </GenericForm>
+          )}
 
-function SectionHeader({ number, title, subtitle }: any) {
-  return (
-    <div className="flex items-start gap-4">
-      <span className="bg-slate-900 text-white text-[12px] font-black w-8 h-8 flex items-center justify-center rounded-xl shadow-md shrink-0 mt-1">{number}</span>
-      <div><h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight italic leading-none">{title}</h2><p className="text-xs md:text-base font-medium text-slate-400 mt-1.5">{subtitle}</p></div>
-    </div>
-  );
-}
-
-function FieldWrapper({ label, icon, error, children }: any) {
-  return (
-    <div className="space-y-3 relative">
-      {error && <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 font-bold text-sm mb-2 animate-in slide-in-from-top-2"><AlertCircle size={18} /> {error}</div>}
-      <label className="flex items-center gap-2 text-[11px] md:text-[12px] font-black text-slate-400 uppercase tracking-widest ml-1">{icon} {label}</label>
-      {children}
-    </div>
-  );
-}
-
-function InputField({ label, icon, error, ...props }: any) {
-  return <FieldWrapper label={label} icon={icon} error={error}><input className="custom-input" {...props} /></FieldWrapper>;
-}
-
-// SUCCESS VIEW AGORA RECEBE E MOSTRA O PROTOCOLO
-function SuccessView({ protocolo }: { protocolo?: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyToClipboard = () => {
-    if (protocolo) {
-      navigator.clipboard.writeText(protocolo);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+        </div>
+      );
     }
   };
 
   return (
-    <div className="bg-white p-10 md:p-20 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border border-white text-center animate-in zoom-in duration-500">
-      <CheckCircle2 size={70} className="mx-auto text-emerald-500 mb-8" />
-      <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 italic">Solicitação Recebida!</h2>
-      
-      {protocolo && (
-        <div className="bg-slate-50 border-2 border-slate-100 rounded-3xl p-6 mb-8 max-w-md mx-auto">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Seu Protocolo de Atendimento</p>
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-xl md:text-3xl font-black text-slate-800 tracking-tight font-mono">{protocolo}</span>
-            <button onClick={copyToClipboard} className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-500">
-              {copied ? <CheckCircle2 size={20} className="text-emerald-500" /> : <Copy size={20} />}
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-2 font-medium italic">Salve este número para acompanhar seu caso</p>
-        </div>
-      )}
-
-      <div className="text-slate-600 font-medium text-base md:text-lg mb-10 max-w-xl mx-auto leading-relaxed space-y-6">
-        <p>Sua contestação foi registrada com sucesso. Nossa equipe analisará os dados e retornará via e-mail em até <strong>5 dias úteis</strong>.</p>
-      </div>
-      <button onClick={() => window.location.reload()} className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-sm md:text-lg tracking-widest hover:bg-slate-800 transition-all shadow-xl">Novo Reporte</button>
+    <div className="min-h-screen bg-[#f8fafc]">
+      <Header showBack={view !== "home"} onBack={goBack} />
+      <main className="max-w-5xl mx-auto">
+        {renderContent()}
+      </main>
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// COMPONENTES DE VISUAL (PADRÃO ZUBALE)
+// -----------------------------------------------------------------------------
+
+function ProfileCard({ icon, title, desc, color, onClick }: any) {
+  const isBlue = color === "blue";
+  return (
+    <button onClick={onClick} className="group relative overflow-hidden bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border-2 border-transparent hover:border-slate-200 transition-all duration-300 text-left w-full hover:-translate-y-1">
+      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-8 transition-transform group-hover:scale-110 shadow-lg ${isBlue ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-emerald-500 text-white shadow-emerald-200'}`}>{icon}</div>
+      <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-3 italic uppercase tracking-tight">{title}</h3>
+      <p className="text-slate-500 font-bold text-sm leading-relaxed mb-6">{desc}</p>
+      <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-slate-50 w-fit px-4 py-2 rounded-full ${isBlue ? 'text-blue-600' : 'text-emerald-600'}`}>ACESSAR PORTAL <ChevronRight size={14} strokeWidth={4} /></div>
+    </button>
+  );
+}
+
+function MenuOption({ icon, title, desc, iconBg, onClick }: any) {
+  return (
+    <button onClick={onClick} className="w-full bg-white p-6 rounded-[2rem] shadow-lg border-2 border-transparent hover:border-blue-300 hover:shadow-xl transition-all flex items-center justify-between group text-left">
+      <div className="flex items-center gap-6">
+        <div className={`p-4 rounded-2xl shadow-md ${iconBg} group-hover:scale-110 transition-transform`}>{icon}</div>
+        <div><h4 className="font-black text-slate-800 text-lg md:text-xl uppercase italic tracking-tight">{title}</h4><p className="text-slate-400 font-bold text-xs mt-1">{desc}</p></div>
+      </div>
+      <div className="bg-slate-50 p-3 rounded-full text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-colors"><ChevronRight size={24} strokeWidth={3} /></div>
+    </button>
   );
 }

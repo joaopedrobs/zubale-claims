@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
+/* 1. Configurações Base */
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
 }
 
-/* Forçar Light Mode em todo o documento */
 html, body {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   color-scheme: light !important;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Reset de estilos para garantir que o Dark Mode do sistema não interfira */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #f8fafc;
-    --foreground: #0f172a;
+@layer components {
+
+  /* 2. INPUTS E SELECTS (Estilo Zubale: Grosso e Arredondado) */
+  .custom-input, 
+  .custom-select {
+    width: 100%;
+    background-color: #f8fafc; /* slate-50 */
+    border: 2px solid #f1f5f9; /* slate-100 */
+    border-radius: 1rem; /* rounded-2xl */
+    padding: 1rem 1.25rem; /* p-4 */
+    font-weight: 700; /* font-bold */
+    color: #0f172a; /* slate-900 */
+    outline: none;
+    transition: all 0.2s ease-in-out;
+    min-height: 56px; /* Altura fixa para alinhar */
+  }
+
+  /* Estado de Foco (Borda Azul) */
+  .custom-input:focus, 
+  .custom-select:focus {
+    background-color: #ffffff;
+    border-color: #3b82f6; /* blue-500 */
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Placeholder (Texto de ajuda) */
+  .custom-input::placeholder {
+    color: #94a3b8; /* slate-400 */
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem; /* text-xs */
+    letter-spacing: 0.05em; /* tracking-wider */
+  }
+
+  /* 3. CORREÇÃO ESPECÍFICA DO SELECT (A Setinha) */
+  .custom-select {
+    appearance: none; /* Remove a seta feia do navegador */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    /* Adiciona a seta nova via SVG */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 1.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 3rem; /* Espaço para não escrever em cima da seta */
+  }
+
+  /* 4. BOTÕES E CARDS */
+  .btn-zubale {
+    width: 100%;
+    background-color: #2563eb; /* blue-600 */
+    color: white;
+    font-weight: 900; /* font-black */
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-radius: 1rem; /* rounded-2xl */
+    font-size: 1.25rem; /* text-xl */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 20px 25px -5px rgba(219, 234, 254, 1); /* shadow-xl blue-100 */
+    text-transform: uppercase;
+    letter-spacing: -0.025em;
+    cursor: pointer;
+    transition: all 0.2s;
   }
   
-  body {
-    background-color: #f8fafc !important;
-    color: #0f172a !important;
+  .btn-zubale:hover {
+    background-color: #1d4ed8; /* blue-700 */
   }
+  
+  .btn-zubale:active {
+    transform: scale(0.98);
+  }
+  
+  .btn-zubale:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .card-zubale {
+    background-color: white;
+    border-radius: 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid white;
+    padding: 2rem;
+  }
+  
+  @media (min-width: 768px) {
+    .card-zubale {
+      padding: 3rem;
+    }
+  }
+}
+
+/* Scrollbar Personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9; 
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
 }
